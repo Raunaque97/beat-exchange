@@ -1,7 +1,14 @@
+import "reflect-metadata";
 import { TestingAppChain } from "@proto-kit/sdk";
 import { Field, method, PrivateKey } from "o1js";
 import { Balances } from "../../../src/runtime/modules/balances";
-import { Dex, PairBlockKey, TokenPair } from "../../../src/runtime/modules/dex";
+import {
+  Dex,
+  DEX_ADDRESS,
+  PairBlockKey,
+  SettlementInfo,
+  TokenPair,
+} from "../../../src/runtime/modules/dex";
 import { log } from "@proto-kit/common";
 import { BalancesKey, TokenId, UInt64 } from "@proto-kit/library";
 import { DECIMALS } from "../../../src/runtime/constants";
@@ -13,8 +20,10 @@ describe("dex", () => {
     Balances,
     Dex,
   });
+  let dex: Dex;
+  let balances: Balances;
   const eth_Id = TokenId.from(Field.random());
-  const usdt_Id = TokenId.from(Field.random());
+  const usdt_Id = TokenId.from(0); // so that usdt is always first in Pair
   const ethUsdt = TokenPair.from(eth_Id, usdt_Id);
 
   const sequencerPrivateKey = PrivateKey.random();
@@ -27,28 +36,77 @@ describe("dex", () => {
   beforeAll(async () => {
     appChain.configurePartial({
       Runtime: {
-        Balances: {
-          totalSupply: UInt64.from(10000),
-        },
+        Balances: {},
         Dex: {},
       },
     });
 
     await appChain.start();
-    // TODO mint tokens for alice and bob
+    dex = appChain.runtime.resolve("Dex");
+    balances = appChain.runtime.resolve("Balances");
+
+    console.log(`
+      Alice: ${alice.toBase58()}
+      Bob: ${bob.toBase58()}
+      Sequencer: ${sequencer.toBase58()}
+    `);
+
+    // mint tokens for alice and bob
+    const minterPrivateKey = PrivateKey.random();
+    let nonce = 0;
+    appChain.setSigner(minterPrivateKey);
+    const mints = [
+      {
+        tokenId: usdt_Id,
+        address: alice,
+        amount: UInt64.from(1000 * 10 ** DECIMALS),
+      },
+      {
+        tokenId: usdt_Id,
+        address: bob,
+        amount: UInt64.from(20000 * 10 ** DECIMALS),
+      },
+      {
+        tokenId: eth_Id,
+        address: bob,
+        amount: UInt64.from(5 * 10 ** DECIMALS),
+      },
+    ];
+    for (const { tokenId, address, amount } of mints) {
+      const tx = await appChain.transaction(
+        minterPrivateKey.toPublicKey(),
+        async () => {
+          await balances.addBalance(tokenId, address, amount);
+        },
+        { nonce: nonce++ }
+      );
+      await tx.sign();
+      await tx.send();
+    }
+    await appChain.produceBlock();
+
+    const aliceUsdtBalance = await appChain.query.runtime.Balances.balances.get(
+      new BalancesKey({ address: alice, tokenId: usdt_Id })
+    );
+    const bobUsdtBalance = await appChain.query.runtime.Balances.balances.get(
+      new BalancesKey({ address: bob, tokenId: usdt_Id })
+    );
+    console.log(`
+      aliceUsdtBalance:\t${aliceUsdtBalance}
+      bobUsdtBalance: \t${bobUsdtBalance}
+    `);
   });
 
   it("should demonstrate how dex works", async () => {
     // alice submits a buy order (market buy for 100 usdt)
     appChain.setSigner(alicePrivateKey);
-    const dex = appChain.runtime.resolve("Dex");
     const tx1 = await appChain.transaction(alice, async () => {
       await dex.placeBuyOrder(
         ethUsdt,
         UInt64.from(100 * 10 ** DECIMALS),
         UInt64.from(100 * 10 ** DECIMALS),
-        UInt64.from(2000 * 10 ** DECIMALS),
-        UInt64.from(4000 * 10 ** DECIMALS)
+        UInt64.from(2000),
+        UInt64.from(4000)
       );
     });
     await tx1.sign();
@@ -61,8 +119,8 @@ describe("dex", () => {
         ethUsdt,
         UInt64.from(0),
         UInt64.from(3300 * 10 ** DECIMALS),
-        UInt64.from(3000 * 10 ** DECIMALS),
-        UInt64.from(3300 * 10 ** DECIMALS)
+        UInt64.from(3000),
+        UInt64.from(3300)
       );
     });
     await tx2.sign();
@@ -71,7 +129,7 @@ describe("dex", () => {
     // these should run in the server/sequencer
     appChain.setSigner(sequencerPrivateKey);
     // calculate settlement price
-    const settlementPrice = UInt64.from(3300 * 10 ** DECIMALS);
+    const settlementPrice = UInt64.from(3300);
 
     const tx3 = await appChain.transaction(
       sequencer,
@@ -119,26 +177,54 @@ describe("dex", () => {
     await tx6.send();
 
     const block = await appChain.produceBlock();
-    // sleep 1 second
-    const pairBlock0Key = new PairBlockKey({
+    if (!block) {
+      throw new Error("no block produced");
+    }
+
+    for (let i = 0; i < block.transactions.length; i++) {
+      expect(
+        block.transactions[i].status.toBoolean(),
+        "tx:" + (i + 1) + "\t" + block.transactions[i].statusMessage
+      ).toBe(true);
+      // console.log("status: ", block.transactions[i].statusMessage);
+    }
+
+    const pairBlock1Key = new PairBlockKey({
       pair: ethUsdt,
-      blockHeight: UInt64.from(0),
+      blockHeight: UInt64.from(1),
     });
     const buyOrderCount =
-      await appChain.query.runtime.Dex.buyOrderCounters.get(pairBlock0Key);
+      await appChain.query.runtime.Dex.buyOrderCounters.get(pairBlock1Key);
     const sellOrderCount =
-      await appChain.query.runtime.Dex.sellOrderCounters.get(pairBlock0Key);
+      await appChain.query.runtime.Dex.sellOrderCounters.get(pairBlock1Key);
     const settlementInfo =
-      await appChain.query.runtime.Dex.settlementInfos.get(pairBlock0Key);
+      (await appChain.query.runtime.Dex.settlementInfos.get(
+        pairBlock1Key
+      )) as SettlementInfo;
+    // console.log(
+    //   "settlementInfo ",
+    //   Object.keys(settlementInfo).map(
+    //     (key) => `${key}: ${settlementInfo[key as keyof SettlementInfo]}`
+    //   )
+    // );
+    const dexBalance_usdt = await appChain.query.runtime.Balances.balances.get(
+      new BalancesKey({
+        tokenId: usdt_Id,
+        address: DEX_ADDRESS,
+      })
+    );
+    const dexBalance_eth = await appChain.query.runtime.Balances.balances.get(
+      new BalancesKey({
+        tokenId: eth_Id,
+        address: DEX_ADDRESS,
+      })
+    );
+    console.log(`
+      dexBalance_usdt:\t${dexBalance_usdt}
+      dexBalance_eth: \t${dexBalance_eth}
+    `);
     expect(buyOrderCount?.toString()).toBe("1");
     expect(sellOrderCount?.toString()).toBe("1");
-    // console.log(
-    //   "OrderCounts ",
-    //   buyOrderCount?.toString(),
-    //   sellOrderCount?.toString(),
-    //   settlementInfo?.settledBuyOrderCount.toString(),
-    //   settlementInfo?.settledSellOrderCount.toString()
-    // );
     expect(settlementInfo?.settledBuyOrderCount?.toString()).toBe(
       buyOrderCount?.toString()
     );

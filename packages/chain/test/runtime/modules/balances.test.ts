@@ -14,9 +14,7 @@ describe("balances", () => {
 
     appChain.configurePartial({
       Runtime: {
-        Balances: {
-          totalSupply: UInt64.from(10000),
-        },
+        Balances: {},
       },
     });
 
@@ -42,7 +40,10 @@ describe("balances", () => {
     const key = new BalancesKey({ tokenId, address: alice });
     const balance = await appChain.query.runtime.Balances.balances.get(key);
 
-    expect(block?.transactions[0].status.toBoolean()).toBe(true);
+    expect(
+      block?.transactions[0].status.toBoolean(),
+      block?.transactions[0].statusMessage
+    ).toBe(true);
     expect(balance?.toBigInt()).toBe(1000n);
   }, 1_000_000);
 });

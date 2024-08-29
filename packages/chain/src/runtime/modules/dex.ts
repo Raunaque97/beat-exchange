@@ -7,12 +7,15 @@ import {
 import { State, StateMap, assert } from "@proto-kit/protocol";
 import {
   Balance,
-  Balances as BaseBalances,
   TokenId,
   UInt64,
   UInt112,
+  BalancesKey,
+  UInt,
 } from "@proto-kit/library";
-import { Field, Provable, PublicKey, Struct } from "o1js";
+import { Field, Provable, PublicKey, Struct, Encoding, Poseidon } from "o1js";
+import { Balances } from "./balances";
+import { inject } from "tsyringe";
 
 export class TokenPair extends Struct({
   a: TokenId,
@@ -22,7 +25,7 @@ export class TokenPair extends Struct({
     return Provable.if(
       tokenIdA.greaterThan(tokenIdB),
       TokenPair,
-      new TokenPair({ a: tokenIdA, b: tokenIdB }),
+      new TokenPair({ a: tokenIdB, b: tokenIdA }),
       new TokenPair({ a: tokenIdA, b: tokenIdB })
     );
   }
@@ -42,7 +45,7 @@ export class Order extends Struct({
   amount_high: Balance,
   price_low: UInt64,
   price_high: UInt64,
-  // TODO add sender address
+  receiverAddress: PublicKey,
 }) {}
 export class SettlementInfo extends Struct({
   settlementPrice: UInt64,
@@ -58,6 +61,9 @@ export class SettlementInfo extends Struct({
   sellAccuSP: UInt64,
   sellAccuSP_plus1: UInt64,
 }) {}
+export const DEX_ADDRESS = PublicKey.fromGroup(
+  Poseidon.hashToGroup(Encoding.stringToFields("DEX_ADDRESS"))
+);
 
 @runtimeModule()
 export class Dex extends RuntimeModule<{}> {
@@ -72,6 +78,10 @@ export class Dex extends RuntimeModule<{}> {
     UInt64
   );
   @state() public sellOrders = StateMap.from<OrderKey, Order>(OrderKey, Order);
+
+  public constructor(@inject("Balances") public balances: Balances) {
+    super();
+  }
 
   @runtimeMethod()
   public async placeBuyOrder(
@@ -89,6 +99,7 @@ export class Dex extends RuntimeModule<{}> {
       price_low.lessThan(price_high),
       "price_low must be less than or equal to price_high"
     );
+    assert(price_low.equals(0).not(), "price_low must not be 0");
 
     const blockHeight = new UInt64(this.network.block.height);
     const { value: orderId } = await this.buyOrderCounters.get(
@@ -96,13 +107,25 @@ export class Dex extends RuntimeModule<{}> {
     );
     await this.buyOrders.set(
       new OrderKey({ pair, blockHeight, orderId }),
-      new Order({ amount_low, amount_high, price_low, price_high })
+      new Order({
+        amount_low,
+        amount_high,
+        price_low,
+        price_high,
+        receiverAddress: this.transaction.sender.value,
+      })
     );
     await this.buyOrderCounters.set(
       new PairBlockKey({ pair, blockHeight }),
       orderId.add(1)
     );
-    // TODO update sender's balance
+    // update sender's balance
+    await this.balances.transfer(
+      pair.a,
+      this.transaction.sender.value,
+      DEX_ADDRESS,
+      amount_low
+    );
   }
 
   @runtimeMethod()
@@ -122,6 +145,7 @@ export class Dex extends RuntimeModule<{}> {
       price_low.lessThan(price_high),
       "price_low must be less than or equal to price_high"
     );
+    assert(price_low.equals(0).not(), "price_low must not be 0");
 
     const blockHeight = new UInt64(this.network.block.height);
     const { value: orderId } = await this.sellOrderCounters.get(
@@ -129,13 +153,27 @@ export class Dex extends RuntimeModule<{}> {
     );
     await this.sellOrders.set(
       new OrderKey({ pair, blockHeight, orderId }),
-      new Order({ amount_low, amount_high, price_low, price_high })
+      new Order({
+        amount_low,
+        amount_high,
+        price_low,
+        price_high,
+        receiverAddress: this.transaction.sender.value,
+      })
     );
     await this.sellOrderCounters.set(
       new PairBlockKey({ pair, blockHeight }),
       orderId.add(1)
     );
-    // TODO update sender's balance
+    // update sender's balance
+    const deduction_low = safeDiv(amount_low, price_low);
+    const deduction_high = safeDiv(amount_high, price_high);
+    await this.balances.transfer(
+      pair.b,
+      this.transaction.sender.value,
+      DEX_ADDRESS,
+      provableMax(deduction_low, deduction_high)
+    );
   }
 
   // TODO move these to a protocol hooks
@@ -152,6 +190,7 @@ export class Dex extends RuntimeModule<{}> {
     buyTotal: UInt64,
     sellTotal: UInt64
   ): Promise<void> {
+    assert(settlementPrice.equals(0).not(), "settlementPrice must not be 0");
     await this.settlementInfos.set(
       new PairBlockKey({
         pair,
@@ -184,6 +223,8 @@ export class Dex extends RuntimeModule<{}> {
       await this.settlementInfos.get(currentPairBlockKey);
     const {
       settlementPrice,
+      buyTotal,
+      sellTotal,
       settledBuyOrderCount,
       buyAccuSP_minus1,
       buyAccuSP,
@@ -201,8 +242,31 @@ export class Dex extends RuntimeModule<{}> {
     const amtSP = calcBuyAmt(order, settlementPrice);
     const amtSP_plus1 = calcBuyAmt(order, settlementPrice.add(1));
 
-    // TODO update sender's balances
+    // update sender's balances
+    // fillRatio = sellTotal /  Max(buyTotal, sellTotal)
+    // amount of token A traded = fillRatio * amtSP
+    const tradeAmt_A = safeDiv112(
+      new UInt112(amtSP).mul(new UInt112(sellTotal)),
+      new UInt112(provableMax(buyTotal, sellTotal))
+    );
+    const tradeAmt_B = safeDiv(tradeAmt_A, settlementPrice);
+    assert(
+      tradeAmt_A.lessThanOrEqual(order.amount_low),
+      "Invariant Unsatisfied: tradeAmt_A <= amount_low"
+    );
 
+    await this.balances.transfer(
+      pair.b,
+      DEX_ADDRESS,
+      order.receiverAddress,
+      tradeAmt_B
+    );
+    await this.balances.transfer(
+      pair.a,
+      DEX_ADDRESS,
+      order.receiverAddress,
+      order.amount_low.sub(tradeAmt_A) // amount of token A refunded
+    );
     // update settlementInfo, counters
     await this.settlementInfos.set(
       currentPairBlockKey,
@@ -227,6 +291,8 @@ export class Dex extends RuntimeModule<{}> {
     const { value: settlementInfo } =
       await this.settlementInfos.get(currentPairBlockKey);
     const {
+      buyTotal,
+      sellTotal,
       settlementPrice,
       settledSellOrderCount,
       sellAccuSP_minus1,
@@ -245,7 +311,34 @@ export class Dex extends RuntimeModule<{}> {
     const amtSP = calcSellAmt(order, settlementPrice);
     const amtSP_plus1 = calcSellAmt(order, settlementPrice.add(1));
 
-    // TODO update sender's balances
+    // update sender's balances
+    // fillRatio = buyTotal /  Max(buyTotal, sellTotal)
+    // amount of token A traded = fillRatio * amtSP
+    const tradeAmt_A = safeDiv112(
+      new UInt112(amtSP).mul(new UInt112(buyTotal)),
+      new UInt112(provableMax(buyTotal, sellTotal))
+    );
+    const tradeAmt_B = safeDiv(tradeAmt_A, settlementPrice);
+    const totalDeposit = provableMax(
+      safeDiv(order.amount_low, order.price_low),
+      safeDiv(order.amount_high, order.price_high)
+    );
+    assert(
+      tradeAmt_B.lessThanOrEqual(totalDeposit),
+      "Invariant Unsatisfied: tradeAmt_B <= totalDeposit"
+    );
+    await this.balances.transfer(
+      pair.b,
+      DEX_ADDRESS,
+      order.receiverAddress,
+      totalDeposit.sub(tradeAmt_B) // amount of token B to refunded
+    );
+    await this.balances.transfer(
+      pair.a,
+      DEX_ADDRESS,
+      order.receiverAddress,
+      tradeAmt_A
+    );
 
     // update settlementInfo, counters
     await this.settlementInfos.set(
@@ -301,12 +394,6 @@ export class Dex extends RuntimeModule<{}> {
     const vol_sp = provableMin(buyAccuSP, sellAccuSP);
     const vol_sp_minus1 = provableMin(buyAccuSP_minus1, sellAccuSP_minus1);
     const vol_sp_plus1 = provableMin(buyAccuSP_plus1, sellAccuSP_plus1);
-
-    Provable.asProver(() => {
-      console.log(
-        `settleBlock: vol_sp:${vol_sp.toString()} vol_sp_minus1:${vol_sp_minus1.toString()} vol_sp_plus1:${vol_sp_plus1.toString()}`
-      );
-    });
 
     assert(
       vol_sp
@@ -379,4 +466,19 @@ function calcSellAmt(order: Order, settlementPrice: UInt64): Balance {
       )
     )
   );
+}
+/**
+ * handles division by zero
+ * returns x / y
+ */
+function safeDiv(x: UInt64, y: UInt64): UInt64 {
+  const adjustedY = Provable.if(y.equals(0), UInt64, UInt64.from(1), y);
+  assert(y.equals(0).not(), "division by zero");
+  return x.div(new UInt64(adjustedY));
+}
+
+function safeDiv112(x: UInt<112>, y: UInt<112>): UInt64 {
+  const adjustedY = Provable.if(y.equals(0), UInt112, UInt112.from(1), y);
+  assert(y.equals(0).not(), "division by zero");
+  return new UInt64(x.div(new UInt112(adjustedY))); // TODO clamp value
 }

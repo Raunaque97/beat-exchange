@@ -3,12 +3,8 @@ import { State, assert } from "@proto-kit/protocol";
 import { Balance, Balances as BaseBalances, TokenId } from "@proto-kit/library";
 import { PublicKey } from "o1js";
 
-interface BalancesConfig {
-  totalSupply: Balance;
-}
-
 @runtimeModule()
-export class Balances extends BaseBalances<BalancesConfig> {
+export class Balances extends BaseBalances<{}> {
   @state() public circulatingSupply = State.from<Balance>(Balance);
 
   @runtimeMethod()
@@ -20,10 +16,6 @@ export class Balances extends BaseBalances<BalancesConfig> {
     const circulatingSupply = await this.circulatingSupply.get();
     const newCirculatingSupply = Balance.from(circulatingSupply.value).add(
       amount
-    );
-    assert(
-      newCirculatingSupply.lessThanOrEqual(this.config.totalSupply),
-      "Circulating supply would be higher than total supply"
     );
     await this.circulatingSupply.set(newCirculatingSupply);
     await this.mint(tokenId, address, amount);
