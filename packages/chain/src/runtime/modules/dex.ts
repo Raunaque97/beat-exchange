@@ -237,6 +237,9 @@ export class Dex extends RuntimeModule<{}> {
         orderId: settledBuyOrderCount,
       })
     );
+    const { value: buyOrderCount } =
+      await this.buyOrderCounters.get(currentPairBlockKey);
+    assert(settledBuyOrderCount.lessThan(buyOrderCount), "nothing to settle");
 
     const amtSP_minus1 = calcBuyAmt(order, settlementPrice.sub(1));
     const amtSP = calcBuyAmt(order, settlementPrice);
@@ -306,6 +309,9 @@ export class Dex extends RuntimeModule<{}> {
         orderId: settledSellOrderCount,
       })
     );
+    const { value: sellOrderCount } =
+      await this.sellOrderCounters.get(currentPairBlockKey);
+    assert(settledSellOrderCount.lessThan(sellOrderCount), "nothing to settle");
 
     const amtSP_minus1 = calcSellAmt(order, settlementPrice.sub(1));
     const amtSP = calcSellAmt(order, settlementPrice);

@@ -1,5 +1,11 @@
 import "reflect-metadata";
-import { TestingAppChain } from "@proto-kit/sdk";
+import { log } from "@proto-kit/common";
+import {
+  BalancesKey,
+  TokenId,
+  UInt64,
+  VanillaProtocolModules,
+} from "@proto-kit/library";
 import { Field, method, PrivateKey } from "o1js";
 import { Balances } from "../../../src/runtime/modules/balances";
 import {
@@ -9,9 +15,8 @@ import {
   SettlementInfo,
   TokenPair,
 } from "../../../src/runtime/modules/dex";
-import { log } from "@proto-kit/common";
-import { BalancesKey, TokenId, UInt64 } from "@proto-kit/library";
 import { DECIMALS } from "../../../src/runtime/constants";
+import { TestingAppChain } from "../../TestingAppchain";
 
 log.setLevel("ERROR");
 
