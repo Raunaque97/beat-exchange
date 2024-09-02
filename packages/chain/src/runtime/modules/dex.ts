@@ -16,6 +16,14 @@ import {
 import { Field, Provable, PublicKey, Struct, Encoding, Poseidon } from "o1js";
 import { Balances } from "./balances";
 import { inject } from "tsyringe";
+import {
+  calcBuyAmt,
+  calcSellAmt,
+  provableMax,
+  provableMin,
+  safeDiv,
+  safeDiv112,
+} from "../utils";
 
 export class TokenPair extends Struct({
   a: TokenId,
@@ -408,83 +416,4 @@ export class Dex extends RuntimeModule<{}> {
       "should be settled for max volume"
     );
   }
-}
-
-function provableMin(a: UInt64, b: UInt64): UInt64 {
-  return new UInt64(Provable.if(a.lessThan(b), UInt64, a, b));
-}
-function provableMax(a: UInt64, b: UInt64): UInt64 {
-  return new UInt64(Provable.if(a.greaterThan(b), UInt64, a, b));
-}
-
-/**
- * a_low >= a_high; p_low <= p <= p_high
- * Amt(p) = a_low - (a_low - a_high) * (p - p_low) / (p_high - p_low)
- */
-function calcBuyAmt(order: Order, settlementPrice: UInt64): Balance {
-  const numerator1 = new UInt112(order.amount_low.sub(order.amount_high));
-  const numerator2 = new UInt112(settlementPrice.sub(order.price_low));
-  const denominator = Provable.if(
-    order.price_high.equals(order.price_low),
-    UInt64,
-    UInt64.from(1),
-    order.price_high.sub(order.price_low)
-  );
-  const dec = numerator1.mul(numerator2).div(new UInt112(denominator));
-  return new Balance(
-    Provable.if(
-      settlementPrice.lessThanOrEqual(order.price_low),
-      UInt64,
-      order.amount_low,
-      Provable.if(
-        settlementPrice.greaterThanOrEqual(order.price_high),
-        UInt64,
-        Balance.from(0),
-        order.amount_low.sub(new UInt64(dec))
-      )
-    )
-  );
-}
-/**
- * a_low <= a_high; p_low <= p <= p_high
- * Amt(p) = a_low + (a_high - a_low) * (p - p_low) / (p_high - p_low)
- */
-function calcSellAmt(order: Order, settlementPrice: UInt64): Balance {
-  const numerator1 = new UInt112(order.amount_high.sub(order.amount_low));
-  const numerator2 = new UInt112(settlementPrice.sub(order.price_low));
-  const denominator = Provable.if(
-    order.price_high.equals(order.price_low),
-    UInt64,
-    UInt64.from(1),
-    order.price_high.sub(order.price_low)
-  );
-  const inc = numerator1.mul(numerator2).div(new UInt112(denominator));
-  return new Balance(
-    Provable.if(
-      settlementPrice.lessThanOrEqual(order.price_low),
-      UInt64,
-      Balance.from(0),
-      Provable.if(
-        settlementPrice.greaterThanOrEqual(order.price_high),
-        UInt64,
-        order.amount_high,
-        order.amount_low.add(new UInt64(inc))
-      )
-    )
-  );
-}
-/**
- * handles division by zero
- * returns x / y
- */
-function safeDiv(x: UInt64, y: UInt64): UInt64 {
-  const adjustedY = Provable.if(y.equals(0), UInt64, UInt64.from(1), y);
-  assert(y.equals(0).not(), "division by zero");
-  return x.div(new UInt64(adjustedY));
-}
-
-function safeDiv112(x: UInt<112>, y: UInt<112>): UInt64 {
-  const adjustedY = Provable.if(y.equals(0), UInt112, UInt112.from(1), y);
-  assert(y.equals(0).not(), "division by zero");
-  return new UInt64(x.div(new UInt112(adjustedY))); // TODO clamp value
 }
