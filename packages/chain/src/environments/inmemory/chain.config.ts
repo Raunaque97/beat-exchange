@@ -8,7 +8,10 @@ import {
   baseSequencerModules,
   baseSequencerModulesConfig,
 } from "../../sequencer";
-import { baseAppChainModules } from "../../app-chain";
+import {
+  baseAppChainModules,
+  baseAppChainModulesConfig,
+} from "../../app-chain";
 
 export const appChain = AppChain.from({
   Runtime: Runtime.from({
@@ -35,6 +38,7 @@ export default async () => {
       Database: {},
     },
     ...baseSequencerModulesConfig,
+    ...baseAppChainModulesConfig,
   });
 
   return appChain;
