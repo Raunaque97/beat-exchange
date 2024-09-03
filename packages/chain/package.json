@@ -69,6 +69,8 @@
     "yargs": "^17.7.2"
   },
   "dependencies": {
+    "dotenv": "^16.4.5",
+    "node-fetch": "^3.3.2",
     "reflect-metadata": "^0.1.13"
   }
 }
