@@ -16,7 +16,7 @@ import {
   TokenPair,
 } from "../../../src/runtime/modules/dex";
 import { DECIMALS } from "../../../src/runtime/constants";
-import { TestingAppChain } from "../../TestingAppchain";
+import { TestingAppChain } from "../../TestingAppChain";
 
 log.setLevel("ERROR");
 

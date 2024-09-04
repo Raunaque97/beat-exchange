@@ -134,6 +134,11 @@ export class Dex extends RuntimeModule<{}> {
       DEX_ADDRESS,
       amount_low
     );
+    // Provable.asProver(() => {
+    //   console.log(`placeBuyOrder: blockHeight=${blockHeight.toString()}
+    //     transfered ${amount_low.toString()} tokenA from user
+    //     `);
+    // });
   }
 
   @runtimeMethod()
@@ -182,6 +187,11 @@ export class Dex extends RuntimeModule<{}> {
       DEX_ADDRESS,
       provableMax(deduction_low, deduction_high)
     );
+    // Provable.asProver(() => {
+    //   console.log(`placeSellOrder: blockHeight=${blockHeight.toString()}
+    //     transfered ${provableMax(deduction_low, deduction_high).toString()} tokenB from user
+    //     `);
+    // });
   }
 
   // TODO move these to a protocol hooks
@@ -278,6 +288,12 @@ export class Dex extends RuntimeModule<{}> {
       order.receiverAddress,
       order.amount_low.sub(tradeAmt_A) // amount of token A refunded
     );
+    Provable.asProver(() => {
+      console.log(`settlementStepBuy: settlementPrice ${settlementPrice.toString()}
+        tradeAmt_B ${tradeAmt_B.toString()}
+        receiver ${order.receiverAddress.toBase58()}
+        refund ${order.amount_low.sub(tradeAmt_A).toString()}`);
+    });
     // update settlementInfo, counters
     await this.settlementInfos.set(
       currentPairBlockKey,
@@ -353,7 +369,12 @@ export class Dex extends RuntimeModule<{}> {
       order.receiverAddress,
       tradeAmt_A
     );
-
+    Provable.asProver(() => {
+      console.log(`settlementStepSell: settlementPrice ${settlementPrice.toString()}
+        receiver ${order.receiverAddress.toBase58()}
+        tradeAmt_A ${tradeAmt_A.toString()}
+        refund ${totalDeposit.sub(tradeAmt_B).toString()}`);
+    });
     // update settlementInfo, counters
     await this.settlementInfos.set(
       currentPairBlockKey,

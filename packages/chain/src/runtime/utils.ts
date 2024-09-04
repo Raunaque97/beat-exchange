@@ -22,7 +22,7 @@ export function provableMax(a: UInt64, b: UInt64): UInt64 {
  */
 export function calcBuyAmt(order: Order, settlementPrice: UInt64): Balance {
   const numerator1 = new UInt112(order.amount_low.sub(order.amount_high));
-  const numerator2 = new UInt112(settlementPrice.sub(order.price_low));
+  const numerator2 = new UInt112(safeSub(settlementPrice, order.price_low));
   const denominator = Provable.if(
     order.price_high.equals(order.price_low),
     UInt64,
@@ -36,10 +36,10 @@ export function calcBuyAmt(order: Order, settlementPrice: UInt64): Balance {
       UInt64,
       order.amount_low,
       Provable.if(
-        settlementPrice.greaterThanOrEqual(order.price_high),
+        settlementPrice.greaterThan(order.price_high),
         UInt64,
         Balance.from(0),
-        order.amount_low.sub(new UInt64(dec))
+        safeSub(order.amount_low, new UInt64(dec))
       )
     )
   );
@@ -50,7 +50,7 @@ export function calcBuyAmt(order: Order, settlementPrice: UInt64): Balance {
  */
 export function calcSellAmt(order: Order, settlementPrice: UInt64): Balance {
   const numerator1 = new UInt112(order.amount_high.sub(order.amount_low));
-  const numerator2 = new UInt112(settlementPrice.sub(order.price_low));
+  const numerator2 = new UInt112(safeSub(settlementPrice, order.price_low));
   const denominator = Provable.if(
     order.price_high.equals(order.price_low),
     UInt64,
@@ -74,16 +74,22 @@ export function calcSellAmt(order: Order, settlementPrice: UInt64): Balance {
 }
 /**
  * handles division by zero
- * returns x / y
+ * returns (y != 0) ? x / y : x
  */
 export function safeDiv(x: UInt64, y: UInt64): UInt64 {
   const adjustedY = Provable.if(y.equals(0), UInt64, UInt64.from(1), y);
-  assert(y.equals(0).not(), "division by zero");
   return x.div(new UInt64(adjustedY));
 }
 
 export function safeDiv112(x: UInt<112>, y: UInt<112>): UInt64 {
   const adjustedY = Provable.if(y.equals(0), UInt112, UInt112.from(1), y);
-  assert(y.equals(0).not(), "division by zero");
   return new UInt64(x.div(new UInt112(adjustedY))); // TODO clamp value
+}
+
+/**
+ * @returns (x > y) ? x - y : 0
+ */
+export function safeSub(x: UInt64, y: UInt64): UInt64 {
+  const adjestedY = Provable.if(x.greaterThan(y), UInt64, y, x);
+  return x.sub(new UInt64(adjestedY));
 }
