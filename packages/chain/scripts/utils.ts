@@ -1,6 +1,7 @@
 import { Balance, BalancesKey, TokenId, UInt64 } from "@proto-kit/library";
 import { PublicKey } from "o1js";
 import { client } from "../src/environments/client.config";
+import { DECIMALS } from "../src/runtime/constants";
 
 export async function getBalance(
   appChain: typeof client,
@@ -24,4 +25,8 @@ export async function getCurrentNonce(
   const accountState =
     await appChain.query.protocol.AccountState.accountState.get(address);
   return Number(accountState?.nonce.toBigInt() || 0n);
+}
+
+export function prettyBalance(bal: Balance, decimals = DECIMALS) {
+  return `${bal.toString().slice(0, -decimals)}.${Number(bal.toString().slice(-decimals))}`;
 }

@@ -17,6 +17,7 @@ import { Field, Provable, PublicKey, Struct, Encoding, Poseidon } from "o1js";
 import { Balances } from "./balances";
 import { inject } from "tsyringe";
 import {
+  TokenPair,
   calcBuyAmt,
   calcSellAmt,
   provableMax,
@@ -24,20 +25,6 @@ import {
   safeDiv,
   safeDiv112,
 } from "../utils";
-
-export class TokenPair extends Struct({
-  a: TokenId,
-  b: TokenId,
-}) {
-  public static from(tokenIdA: TokenId, tokenIdB: TokenId) {
-    return Provable.if(
-      tokenIdA.greaterThan(tokenIdB),
-      TokenPair,
-      new TokenPair({ a: tokenIdB, b: tokenIdA }),
-      new TokenPair({ a: tokenIdA, b: tokenIdB })
-    );
-  }
-}
 
 export class OrderKey extends Struct({
   pair: TokenPair,
@@ -48,7 +35,7 @@ export class PairBlockKey extends Struct({
   pair: TokenPair,
   blockHeight: UInt64,
 }) {}
-export class Order extends Struct({
+class Order extends Struct({
   amount_low: Balance,
   amount_high: Balance,
   price_low: UInt64,

@@ -2,7 +2,7 @@
   "name": "chain",
   "version": "1.0.0",
   "type": "module",
-  "main": "dist/index.js",
+  "main": "dist/src/index.js",
   "watch": {
     "build-and-start": {
       "patterns": [
@@ -23,7 +23,9 @@
     "dev:run": "node --loader ts-node/esm --experimental-vm-modules --experimental-wasm-threads --experimental-wasm-modules --es-module-specifier-resolution=node ./src/start.ts start \"./environments/$PROTOKIT_ENV_FOLDER/chain.config.ts\" $1",
     "dev": "nodemon --watch src -e ts --exec \"pnpm dev:run\"",
     "prisma:migrate": "prisma migrate deploy --schema ./node_modules/@proto-kit/persistance/prisma/schema.prisma",
-    "prisma:generate": "prisma generate --schema ./node_modules/@proto-kit/persistance/prisma/schema.prisma"
+    "prisma:generate": "prisma generate --schema ./node_modules/@proto-kit/persistance/prisma/schema.prisma",
+    "start:bot": "sh ./scripts/run-bot.sh",
+    "dev:bot": "pnpm run build && pnpm run start:bot"
   },
   "peerDependencies": {
     "@proto-kit/api": "*",

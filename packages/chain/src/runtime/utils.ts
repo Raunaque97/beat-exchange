@@ -1,6 +1,6 @@
-import { Balance, UInt, UInt112, UInt64 } from "@proto-kit/library";
+import { Balance, TokenId, UInt, UInt112, UInt64 } from "@proto-kit/library";
 import { assert } from "@proto-kit/protocol";
-import { Provable } from "o1js";
+import { Provable, Struct } from "o1js";
 
 export type Order = {
   amount_low: Balance;
@@ -8,6 +8,20 @@ export type Order = {
   price_low: UInt64;
   price_high: UInt64;
 };
+
+export class TokenPair extends Struct({
+  a: TokenId,
+  b: TokenId,
+}) {
+  public static from(tokenIdA: TokenId, tokenIdB: TokenId) {
+    return Provable.if(
+      tokenIdA.greaterThan(tokenIdB),
+      TokenPair,
+      new TokenPair({ a: tokenIdB, b: tokenIdA }),
+      new TokenPair({ a: tokenIdA, b: tokenIdB })
+    );
+  }
+}
 
 export function provableMin(a: UInt64, b: UInt64): UInt64 {
   return new UInt64(Provable.if(a.lessThan(b), UInt64, a, b));

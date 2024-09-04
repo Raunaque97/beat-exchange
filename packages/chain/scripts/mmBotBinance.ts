@@ -3,13 +3,13 @@ import { client } from "../src/environments/client.config";
 import { PrivateKey } from "o1js";
 import * as dotenv from "dotenv";
 import { DECIMALS } from "../src/runtime/constants";
-import { TokenPair } from "../src/runtime/modules/dex";
-import { getBalance, getCurrentNonce } from "./utils";
+import { getBalance, getCurrentNonce, prettyBalance } from "./utils";
 import { exit } from "process";
+import { TokenPair } from "../src/runtime/utils";
 
 // running script from `root/packages/chain`
 dotenv.config({ path: "./scripts/.env" });
-const pvtKey = PrivateKey.fromBase58(process.env.BOT_PVT_KEY as string);
+const pvtKey = PrivateKey.fromBase58(process.env.BOT_PVT_KEY_1 as string);
 const publicKey = pvtKey.toPublicKey();
 client.configurePartial({
   GraphqlClient: {
@@ -54,13 +54,13 @@ while (true) {
   }
 
   // get price from binance
-  const price = 3000; // price of B in terms of A
+  const price = await getEthPrice(); // price of B in terms of A
 
   const tokenB_usdVal = balanceB.mul(price);
   const amt =
     tokenB_usdVal.toBigInt() < balanceA.toBigInt() ? tokenB_usdVal : balanceA;
 
-  console.log(`amt :\t${amt.toString()}`);
+  // console.log(`amt :\t${amt.toString()}`);
   // place Buy side order(s)
   let tx = await client.transaction(
     publicKey,
@@ -105,7 +105,22 @@ while (true) {
     balanceB = await getBalance(client, publicKey, pair.b); // eth
     const usdVal = balanceB.mul(price);
     console.log(
-      `Balance A: ${balanceA} \tBalance B: ${balanceB} \tUSD Val: ${usdVal}`
+      `BalanceA (usdt): ${prettyBalance(balanceA)} \tBalanceB (eth): ${prettyBalance(balanceB)} \t ~ $${prettyBalance(usdVal)}`
     );
+  }
+}
+
+async function getEthPrice(): Promise<number> {
+  const url = "https://api.binance.com/api/v3/ticker/price?symbol=ETHUSDT";
+
+  try {
+    const response = await fetch(url);
+    const data = await response.json();
+    //@ts-ignore
+    const price = parseFloat(data.price);
+    return Math.floor(price * 10 ** 0);
+  } catch (error) {
+    console.error("Error fetching price:", error);
+    throw error;
   }
 }

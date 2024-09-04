@@ -8,10 +8,10 @@ import {
 import { LogLevelDesc } from "loglevel";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
-import { Dex, TokenPair } from "./runtime/modules/dex";
+import { Dex } from "./runtime/modules/dex";
 import { PrivateKey } from "o1js";
 import { Balance, TokenId, UInt64 } from "@proto-kit/library";
-import { calcBuyAmt, calcSellAmt, Order } from "./runtime/utils";
+import { calcBuyAmt, calcSellAmt, Order, TokenPair } from "./runtime/utils";
 import { calculateSettlementPrice } from "./solver";
 import { MethodIdResolver } from "@proto-kit/module";
 import { AppChainTransaction, InMemorySigner } from "@proto-kit/sdk";
