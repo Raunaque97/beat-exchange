@@ -1,0 +1,44 @@
+{
+  "name": "cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "beatsEx": "./dist/beats-swap-cli.js"
+  },
+  "main": "./dist/beats-swap-cli.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node --experimental-vm-modules --experimental-wasm-modules --experimental-wasm-threads --es-module-specifier-resolution=node dist/beats-swap-cli.js",
+    "dev": "pnpm run build && pnpm run start"
+  },
+  "dependencies": {
+    "blessed": "^0.1.81",
+    "chain": "workspace:*",
+    "chalk": "^5.3.0",
+    "cli-table3": "^0.6.5",
+    "commander": "^12.1.0",
+    "figlet": "^1.7.0",
+    "inquirer": "^10.2.0",
+    "o1js": "1.6.0",
+    "ora": "^8.1.0",
+    "reflect-metadata": "^0.1.13",
+    "truncate-middle": "^1.0.6"
+  },
+  "devDependencies": {
+    "@types/blessed": "^0.1.25",
+    "@types/figlet": "^1.5.8",
+    "@types/inquirer": "^9.0.7",
+    "@types/node": "^20",
+    "typescript": "^5.4.5"
+  },
+  "peerDependencies": {
+    "@proto-kit/common": "*",
+    "@proto-kit/library": "*",
+    "@proto-kit/module": "*",
+    "@proto-kit/protocol": "*",
+    "@proto-kit/sdk": "*",
+    "@proto-kit/sequencer": "*",
+    "tsyringe": "^4.7.0"
+  }
+}
