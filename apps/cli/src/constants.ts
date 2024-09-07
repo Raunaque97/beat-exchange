@@ -29,3 +29,16 @@ export function tokenNameFromId(tokenId: TokenId): string {
   }
   return "Unknown";
 }
+
+export function marketNameFromIds(a: TokenId, b: TokenId): string {
+  const pair = TokenPair.from(a, b);
+  for (const [k, v] of Object.entries(MARKETS)) {
+    if (
+      v.a.toString() === pair.a.toString() &&
+      v.b.toString() === pair.b.toString()
+    ) {
+      return k;
+    }
+  }
+  return `${tokenNameFromId(pair.a)}_${tokenNameFromId(pair.b)}`;
+}

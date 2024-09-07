@@ -6,16 +6,24 @@ import { ConfigManager } from "./configManager";
 import { WalletManager } from "./walletManager";
 import { OrderManager } from "./orderManager";
 import { Logger } from "./logger";
-import { CLI_NAME, CLI_DESCRIPTION, TOKEN_IDS, DECIMALS } from "./constants";
+import {
+  CLI_NAME,
+  CLI_DESCRIPTION,
+  TOKEN_IDS,
+  DECIMALS,
+  MARKETS,
+} from "./constants";
 import ora from "ora";
 import { prettyBalance } from "./utils";
 import { client } from "chain";
 import { TokenId, UInt64 } from "@proto-kit/library";
+import ansiEscapes from "ansi-escapes";
 
 class BeatExCLI {
   private wallet: WalletManager;
   private orderManager: OrderManager;
   private logger: Logger;
+  private headerHeight: number = 0;
 
   constructor() {
     this.wallet = new WalletManager(new ConfigManager(), new Logger());
@@ -32,10 +40,59 @@ class BeatExCLI {
     }
   }
 
-  async mainMenu(): Promise<void> {
-    console.log(
-      chalk.blue(figlet.textSync(CLI_NAME, { horizontalLayout: "full" }))
+  private printHeader(subheader?: string): void {
+    console.clear();
+    const figletText = chalk.blue(
+      figlet.textSync(CLI_NAME, { horizontalLayout: "full" })
     );
+    const separator = chalk.yellow("-".repeat(process.stdout.columns));
+    let headerContent = figletText + "\n" + separator + "\n";
+    this.headerHeight = figletText.split("\n").length + 1; // +1 for the separator
+    if (subheader) {
+      headerContent += chalk.yellow(subheader);
+      this.headerHeight += subheader.split("\n").length;
+    }
+
+    console.log(headerContent);
+  }
+
+  private printMarketInfo(
+    market: string,
+    statsText: string,
+    firstTime = false
+  ): void {
+    // Save cursor position
+    // process.stdout.write("\u001B[s");
+    if (!firstTime) {
+      process.stdout.write(ansiEscapes.cursorSavePosition);
+
+      // Move cursor to just below the header
+      process.stdout.write(ansiEscapes.cursorShow);
+      process.stdout.write(`\u001B[${this.headerHeight + 1};0H`);
+
+      // Clear the next 6 lines (5 for stats + 1 for separator)
+      for (let i = 0; i < 6; i++) {
+        process.stdout.write("\u001B[2K\u001B[1E");
+      }
+
+      // Move cursor back to just below the header
+      process.stdout.write(`\u001B[${this.headerHeight + 1};0H`);
+    }
+    // Print the new market info
+    console.log(chalk.cyan(statsText));
+    console.log(chalk.yellow("-".repeat(process.stdout.columns)));
+    if (!firstTime) {
+      // Restore cursor position
+      // process.stdout.write("\u001B[u");
+
+      // process.stdout.write(`\u001B[${this.headerHeight + 10};0H`);
+
+      process.stdout.write(ansiEscapes.cursorRestorePosition);
+    }
+  }
+
+  async mainMenu(): Promise<void> {
+    this.printHeader();
 
     const { action } = await inquirer.prompt([
       {
@@ -55,7 +112,7 @@ class BeatExCLI {
           await this.mintTestTokens();
           break;
         case "Place Order":
-          await this.orderManager.placeOrder();
+          await this.marketMenu();
           break;
         case "Exit":
           process.exit(0);
@@ -66,6 +123,66 @@ class BeatExCLI {
 
     // Return to main menu after action is completed
     await this.mainMenu();
+  }
+
+  async marketMenu(): Promise<void> {
+    this.printHeader("Market Selection");
+
+    const { market } = await inquirer.prompt([
+      {
+        type: "list",
+        name: "market",
+        message: "Select a market:",
+        choices: [...Object.keys(MARKETS), "Back to Main Menu"],
+      },
+    ]);
+
+    if (market === "Back to Main Menu") {
+      return;
+    }
+
+    await this.marketSection(market);
+  }
+
+  async marketSection(market: keyof typeof MARKETS): Promise<void> {
+    this.printHeader(`Market: ${market}`);
+    const updateMarketInfo = async (firstTime: boolean) => {
+      const marketInfo = this.wallet.marketStats.get(market);
+      const balanceA = await this.wallet.getBalance(MARKETS[market].a);
+      const balanceB = await this.wallet.getBalance(MARKETS[market].b);
+
+      const statsText = `Block: ${this.wallet.lastBlockHeight} price: ${marketInfo?.prices.at(-1) || "N/A"}
+Volume (Last 10s EMA): ${marketInfo?.volume.last10sEMA.toFixed(2) || "0.0"}
+Volume (Last 1min EMA): ${marketInfo?.volume.last1minEMA.toFixed(2) || "0.0"}
+Volume (Last 1hr EMA): ${marketInfo?.volume.last1hrEMA.toFixed(2) || "0.0"}
+Balances: ${prettyBalance(balanceA)} ${market.split("_")[0]} | ${prettyBalance(balanceB)} ${market.split("_")[1]}`;
+
+      this.printMarketInfo(market, statsText, firstTime);
+    };
+
+    // Start updating market info
+    const intervalId = setInterval(updateMarketInfo, 2000);
+    await updateMarketInfo(true);
+    // process.stdout.write(`\u001B[15;0H`);
+    while (true) {
+      const prompt = inquirer.prompt([
+        {
+          type: "list",
+          name: "action",
+          message: "What would you like to do?",
+          choices: ["Buy", "Sell", "Back to Main Menu"],
+        },
+      ]);
+      const { action } = (await prompt) as {
+        action: "Buy" | "Sell" | "Back to Main Menu";
+      };
+
+      if (action === "Back to Main Menu") {
+        clearInterval(intervalId);
+        return;
+      }
+      await this.orderManager.placeOrder(market, action);
+    }
   }
 
   async run(): Promise<void> {
@@ -80,8 +197,7 @@ class BeatExCLI {
       for (const tokenName in TOKEN_IDS) {
         if (!(tokenName in TOKEN_IDS)) continue;
         const balance = await this.wallet.getBalance(
-          //@ts-ignore
-          TokenId.from(TOKEN_IDS[tokenName])
+          TokenId.from(TOKEN_IDS[tokenName as keyof typeof TOKEN_IDS])
         );
         balanceTxt += `${tokenName}:\t${prettyBalance(balance)}\n`;
       }
@@ -90,24 +206,30 @@ class BeatExCLI {
       spinner.fail("Failed to fetch balances");
       this.logger.error("Error fetching balances:", error);
     }
+    await inquirer.prompt([
+      {
+        type: "input",
+        name: "continue",
+        message: "Press enter to continue...",
+      },
+    ]);
   }
 
   private async mintTestTokens() {
-    const { action } = await inquirer.prompt([
+    const { action } = (await inquirer.prompt([
       {
         type: "list",
         name: "action",
         message: "Which token would you like to mint?",
         choices: [...Object.keys(TOKEN_IDS), "Back to Main Menu"],
       },
-    ]);
+    ])) as { action: keyof typeof TOKEN_IDS | "Back to Main Menu" };
 
     if (action === "Back to Main Menu") {
       return;
     }
     const spinner = ora("Minting test tokens...").start();
     try {
-      //@ts-ignore
       const tokenId = TOKEN_IDS[action] as number;
       const amt = tokenId === 2 ? 1 : 1000;
       const balances = client.runtime.resolve("Balances");
@@ -131,6 +253,13 @@ class BeatExCLI {
       spinner.fail("Failed to mint test tokens");
       this.logger.error("Error minting test tokens:", error);
     }
+    await inquirer.prompt([
+      {
+        type: "input",
+        name: "continue",
+        message: "Press enter to continue...",
+      },
+    ]);
   }
 }
 
