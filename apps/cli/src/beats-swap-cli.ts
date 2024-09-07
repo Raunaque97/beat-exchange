@@ -80,7 +80,7 @@ class BeatExCLI {
       process.stdout.write(`\u001B[${this.headerHeight + 1};0H`);
     }
     // Print the new market info
-    console.log(chalk.cyan(statsText));
+    console.log(statsText);
     console.log(chalk.yellow("-".repeat(process.stdout.columns)));
     if (!firstTime) {
       // Restore cursor position
@@ -152,11 +152,11 @@ class BeatExCLI {
       const balanceA = await this.wallet.getBalance(MARKETS[market].a);
       const balanceB = await this.wallet.getBalance(MARKETS[market].b);
 
-      const statsText = `Block: ${this.wallet.lastBlockHeight} price: ${marketInfo?.prices.at(-1) || "N/A"}
+      const statsText = `Block: ${this.wallet.latestBlockHeight} price: ${chalk.green(marketInfo?.prices.at(-1) || "N/A")}
 Volume (Last 10s EMA): ${marketInfo?.volume.last10sEMA.toFixed(2) || "0.0"}
 Volume (Last 1min EMA): ${marketInfo?.volume.last1minEMA.toFixed(2) || "0.0"}
 Volume (Last 1hr EMA): ${marketInfo?.volume.last1hrEMA.toFixed(2) || "0.0"}
-Balances: ${prettyBalance(balanceA)} ${tokenNameFromId(MARKETS[market].a)} | ${prettyBalance(balanceB)} ${tokenNameFromId(MARKETS[market].b)}`;
+Balances: ${chalk.green(`${prettyBalance(balanceA)} ${tokenNameFromId(MARKETS[market].a)} | ${prettyBalance(balanceB)} ${tokenNameFromId(MARKETS[market].b)}`)}`;
 
       this.printMarketInfo(market, statsText, firstTime);
     };

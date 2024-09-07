@@ -21,7 +21,8 @@ export class WalletManager {
   public publicKey!: PublicKey;
   private graphqlEndpoint: string = DEFAULT_GRAPHQL_ENDPOINT;
   private nonce = 0;
-  public lastBlockHeight = 0;
+  public latestBlockHeight = 0;
+  public blockHeightToProcess = 0;
   public marketStats: Map<string, MarkeStats>;
 
   constructor(
@@ -62,8 +63,23 @@ export class WalletManager {
       try {
         const blockData = await this.fetchBlock();
         if (blockData.block !== null && blockData.block.txs) {
-          this.processBlockData(blockData);
-          await new Promise((resolve) => setTimeout(resolve, pollingInterval));
+          this.latestBlockHeight =
+            Number(blockData.network.staged.block.height) || 0;
+
+          if (this.latestBlockHeight >= this.blockHeightToProcess) {
+            this.processBlockData(blockData);
+            this.blockHeightToProcess++;
+          }
+          if (this.latestBlockHeight === this.blockHeightToProcess) {
+            await new Promise((resolve) =>
+              setTimeout(resolve, pollingInterval)
+            );
+          }
+          // for catching up
+          this.blockHeightToProcess = Math.max(
+            this.blockHeightToProcess,
+            this.latestBlockHeight - 10
+          );
         }
         await new Promise((resolve) =>
           setTimeout(resolve, pollingInterval / 10)
@@ -76,6 +92,7 @@ export class WalletManager {
   }
 
   private async fetchBlock() {
+    // console.log("fetching block", this.blockHeightToProcess);
     const response = await fetch(this.graphqlEndpoint, {
       method: "POST",
       headers: {
@@ -84,7 +101,7 @@ export class WalletManager {
       body: JSON.stringify({
         query: `
           query GetBlock {
-            block(height: ${this.lastBlockHeight}) {
+            block(height: ${this.blockHeightToProcess}) {
               txs {
                 tx {
                   argsFields
@@ -114,13 +131,8 @@ export class WalletManager {
   }
 
   private processBlockData(blockData: BlockQueryResponse["data"]) {
-    const newBlockHeight = Number(blockData.network.staged.block.height) || 0;
-
-    if (newBlockHeight > this.lastBlockHeight) {
-      this.lastBlockHeight = newBlockHeight;
-      if (blockData.block.txs) {
-        this.processTxns(blockData.block.txs);
-      }
+    if (blockData.block.txs) {
+      this.processTxns(blockData.block.txs);
     }
   }
 
@@ -130,11 +142,14 @@ export class WalletManager {
       const pendingTxn = this.sendTxns.find((t) => t.hash === txn.tx.hash);
       if (pendingTxn) {
         if (txn.status) {
+          // console.log(`Txn included: ${txn.tx.hash}`);
+          pendingTxn.state = "INCLUDED";
           pendingTxn.promise.resolve({});
         } else {
+          pendingTxn.state = "UNKNOWN";
           pendingTxn.promise.reject(txn.statusMessage);
         }
-        this.sendTxns = this.sendTxns.filter((t) => t.hash !== txn.tx.hash);
+        // this.sendTxns = this.sendTxns.filter((t) => t.hash !== txn.tx.hash);
       }
       // update market stats
       if (txn.tx.methodId === getMethodId("Dex", "startSettlement")) {
@@ -167,9 +182,9 @@ export class WalletManager {
       if (marketStats.prices.length > 10) {
         marketStats.prices.shift();
       }
-      marketStats.volume.last10sEMA = (2 / 11) * price + (1 - 2 / 11) * vol;
-      marketStats.volume.last1minEMA = (2 / 61) * price + (1 - 2 / 61) * vol;
-      marketStats.volume.last1hrEMA = (2 / 3601) * price + (1 - 2 / 3601) * vol;
+      marketStats.volume.last10sEMA = (2 / 11) * vol + (1 - 2 / 11) * vol;
+      marketStats.volume.last1minEMA = (2 / 61) * vol + (1 - 2 / 61) * vol;
+      marketStats.volume.last1hrEMA = (2 / 3601) * vol + (1 - 2 / 3601) * vol;
     }
   }
 

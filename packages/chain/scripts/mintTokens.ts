@@ -9,12 +9,6 @@ import { getBalance, getCurrentNonce } from "./utils";
 dotenv.config({ path: "./scripts/.env" });
 const pvtKey = PrivateKey.random();
 const publicKey = pvtKey.toPublicKey();
-const receiver = PrivateKey.fromBase58(
-  process.env.BOT_PVT_KEY_1 as string
-).toPublicKey();
-// const receiver = PrivateKey.fromBase58(
-//   process.env.BOT_PVT_KEY_2 as string
-// ).toPublicKey();
 
 client.configurePartial({
   GraphqlClient: {
@@ -29,47 +23,54 @@ let nonce = await getCurrentNonce(client, publicKey);
  ***************************/
 
 const balances = client.runtime.resolve("Balances");
-let tx = await client.transaction(
-  publicKey,
-  async () => {
-    await balances.addBalance(
-      TokenId.from(2), // eth
-      receiver,
-      UInt64.from(3 * 10 ** DECIMALS)
-    );
-  },
-  { nonce: nonce++ }
-);
-tx.transaction = tx.transaction?.sign(pvtKey);
-await tx.send();
 
-tx = await client.transaction(
-  publicKey,
-  async () => {
-    await balances.addBalance(
-      TokenId.from(1), // usdt
-      receiver,
-      UInt64.from(10000 * 10 ** DECIMALS)
-    );
-  },
-  { nonce: nonce++ }
-);
-tx.transaction = tx.transaction?.sign(pvtKey);
-await tx.send();
+const receiver1 = PrivateKey.fromBase58(
+  process.env.BOT_PVT_KEY_1 as string
+).toPublicKey();
+const receiver2 = PrivateKey.fromBase58(
+  process.env.BOT_PVT_KEY_2 as string
+).toPublicKey();
+for (let receiver of [receiver1, receiver2]) {
+  let tx = await client.transaction(
+    publicKey,
+    async () => {
+      await balances.addBalance(
+        TokenId.from(2), // eth
+        receiver,
+        UInt64.from(3 * 10 ** DECIMALS)
+      );
+    },
+    { nonce: nonce++ }
+  );
+  tx.transaction = tx.transaction?.sign(pvtKey);
+  await tx.send();
 
-// sleep for 1s
-await new Promise((resolve) => setTimeout(resolve, 1000));
+  tx = await client.transaction(
+    publicKey,
+    async () => {
+      await balances.addBalance(
+        TokenId.from(1), // usdt
+        receiver,
+        UInt64.from(10000 * 10 ** DECIMALS)
+      );
+    },
+    { nonce: nonce++ }
+  );
+  tx.transaction = tx.transaction?.sign(pvtKey);
+  await tx.send();
+  // sleep for 1s
+  await new Promise((resolve) => setTimeout(resolve, 1000));
 
-const eth_bal = await getBalance(
-  client,
-  receiver,
-  TokenId.from(2) // eth
-);
-const usdt_bal = await getBalance(
-  client,
-  receiver,
-  TokenId.from(1) // usdt
-);
-
-console.log(`usdt Balance:\t${usdt_bal}`);
-console.log(`eth Balance:\t${eth_bal}`);
+  const eth_bal = await getBalance(
+    client,
+    receiver,
+    TokenId.from(2) // eth
+  );
+  const usdt_bal = await getBalance(
+    client,
+    receiver,
+    TokenId.from(1) // usdt
+  );
+  console.log(`usdt Balance:\t${usdt_bal}`);
+  console.log(`eth Balance:\t${eth_bal}`);
+}

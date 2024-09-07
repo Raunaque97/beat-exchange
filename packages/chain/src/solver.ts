@@ -12,10 +12,10 @@ export function calculateSettlementPrice(
   // use min of price_low for start and max of price_high for end
   let start = buyOrders
     .map((o) => o.price_low)
-    .reduce((a, b) => (a.lessThan(b).toBoolean() ? a : b), UInt64.max);
+    .reduce((a, b) => (a.lessThan(b).toBoolean() ? a : b), UInt64.max.sub(1));
   let end = sellOrders
     .map((o) => o.price_high)
-    .reduce((a, b) => (a.greaterThan(b).toBoolean() ? a : b), UInt64.zero);
+    .reduce((a, b) => (a.greaterThan(b).toBoolean() ? a : b), UInt64.from(1));
   let mid = UInt64.from(1);
   let count = 0;
 

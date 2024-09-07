@@ -127,8 +127,6 @@ async function settleAllOrdersForPair(
   buyOrders: Order[],
   sellOrders: Order[]
 ) {
-  if (buyOrders.length === 0 || sellOrders.length === 0) return;
-
   const dex: Dex = appChain.runtime.resolveOrFail("Dex", Dex);
   // solve for SettlementPrice
   const sPrice = calculateSettlementPrice(buyOrders, sellOrders);

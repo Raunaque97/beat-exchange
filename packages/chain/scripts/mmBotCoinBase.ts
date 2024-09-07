@@ -52,7 +52,7 @@ while (true) {
     exit(0);
   }
 
-  // get price from binance
+  // get price from coinbase
   const price = await getEthPrice(); // price of B in terms of A
 
   const tokenB_usdVal = balanceB.mul(price);
@@ -114,9 +114,9 @@ async function getEthPrice(): Promise<number> {
 
   try {
     const response = await fetch(url);
-    const data = await response.json();
+    const { data } = (await response.json()) as any;
     // @ts-ignore
-    const price = parseFloat(data.price);
+    const price = parseFloat(data.amount);
     return Math.floor(price * 10 ** 0);
   } catch (error) {
     console.error("Error fetching price from Coinbase:", error);
