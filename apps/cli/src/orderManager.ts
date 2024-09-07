@@ -1,14 +1,11 @@
-import { Balance, TokenId, UInt64 } from "@proto-kit/library";
-import { PublicKey, PrivateKey } from "o1js";
+import { UInt64 } from "@proto-kit/library";
 import { client } from "chain";
 import { Logger } from "./logger";
 import { DECIMALS, TOKEN_IDS, MARKETS, tokenNameFromId } from "./constants";
 import inquirer from "inquirer";
 import ora from "ora";
-import chalk from "chalk";
 import { TokenPair } from "chain";
 import { WalletManager } from "./walletManager";
-import { prettyBalance } from "./utils";
 
 export class OrderManager {
   constructor(
@@ -43,39 +40,80 @@ export class OrderManager {
     } else if (orderType === "Custom") {
       await this.handleCustom(market, side);
     }
+    await inquirer.prompt([
+      {
+        type: "confirm",
+        name: "continue",
+        message: "Press enter to continue...",
+      },
+    ]);
   }
 
   private async handleLimitBuy(market: keyof typeof MARKETS): Promise<void> {
+    const tokenABal = await this.wallet.getBalance(MARKETS[market].a);
+    const tokenABal_float = Number(tokenABal.toBigInt()) / 10 ** DECIMALS;
     const { amount, price } = await inquirer.prompt([
       {
         type: "number",
         name: "amount",
         message: "Enter amount to buy:",
+        validate: (value) => {
+          if (!value || isNaN(value)) {
+            return "Please enter a valid number";
+          }
+          if (value <= 0) {
+            return "Please enter a number greater than 0";
+          }
+          if (value > tokenABal_float) {
+            return `Insufficient balance`;
+          }
+          return true;
+        },
       },
       {
         type: "number",
         name: "price",
-        message: "Enter price:",
+        message: "Enter price to buy at:",
       },
     ]);
 
-    const spinner = ora("Placing buy order...").start();
+    const spinner = ora("Executing buy order...").start();
 
     try {
-      await this.placeBuyOrder(MARKETS[market], amount, amount, price, price);
+      await this.placeBuyOrder(
+        MARKETS[market],
+        amount,
+        amount,
+        price / 2,
+        price
+      );
       spinner.succeed("Buy order placed successfully!");
     } catch (error) {
       spinner.fail("Failed to place buy order");
-      this.logger.error("Error placing buy order:", error);
+      this.logger.error("Error executing buy order:", error);
     }
   }
 
   private async handleLimitSell(market: keyof typeof MARKETS): Promise<void> {
+    const tokenBBal = await this.wallet.getBalance(MARKETS[market].b);
+    const tokenBBal_float = Number(tokenBBal.toBigInt()) / 10 ** DECIMALS;
     const { amount, price } = await inquirer.prompt([
       {
         type: "number",
         name: "amount",
         message: "Enter amount to sell:",
+        validate: (value) => {
+          if (!value || isNaN(value)) {
+            return "Please enter a valid number";
+          }
+          if (value <= 0) {
+            return "Please enter a number greater than 0";
+          }
+          if (value > tokenBBal_float) {
+            return `Insufficient balance`;
+          }
+          return true;
+        },
       },
       {
         type: "number",
@@ -84,54 +122,94 @@ export class OrderManager {
       },
     ]);
 
-    const spinner = ora("Placing sell order...").start();
+    const spinner = ora("Executing sell order...").start();
 
     try {
-      await this.placeSellOrder(MARKETS[market], amount, amount, price, price);
+      await this.placeSellOrder(
+        MARKETS[market],
+        amount * price,
+        amount * price * 2,
+        price,
+        price * 2
+      );
       spinner.succeed("Sell order placed successfully!");
     } catch (error) {
       spinner.fail("Failed to place sell order");
-      this.logger.error("Error placing sell order:", error);
+      this.logger.error("Error executing sell order:", error);
     }
   }
 
   private async handleMarketBuy(market: keyof typeof MARKETS): Promise<void> {
+    const tokenABal = await this.wallet.getBalance(MARKETS[market].a);
+    const tokenABal_float = Number(tokenABal.toBigInt()) / 10 ** DECIMALS;
     const { amount } = await inquirer.prompt([
       {
         type: "number",
         name: "amount",
         message: "Enter amount to buy:",
+        validate: (value) => {
+          if (!value || isNaN(value)) {
+            return "Please enter a valid number";
+          }
+          if (value <= 0) {
+            return "Please enter a number greater than 0";
+          }
+          if (value > tokenABal_float) {
+            return `Insufficient balance`;
+          }
+          return true;
+        },
       },
     ]);
 
-    const spinner = ora("Placing market buy order...").start();
+    const spinner = ora("Executing market buy order...").start();
 
     try {
-      await this.placeBuyOrder(MARKETS[market], amount, amount, 0, 2 ** 32);
+      await this.placeBuyOrder(MARKETS[market], amount, amount, 10, 2 ** 32);
       spinner.succeed("Market buy order placed successfully!");
     } catch (error) {
       spinner.fail("Failed to place market buy order");
-      this.logger.error("Error placing market buy order:", error);
+      this.logger.error("Error executing market buy order:", error);
     }
   }
 
   private async handleMarketSell(market: keyof typeof MARKETS): Promise<void> {
+    const tokenBBal = await this.wallet.getBalance(MARKETS[market].b);
+    const tokenBBal_float = Number(tokenBBal.toBigInt()) / 10 ** DECIMALS;
     const { amount } = await inquirer.prompt([
       {
         type: "number",
         name: "amount",
         message: "Enter amount to sell:",
+        validate: (value) => {
+          if (!value || isNaN(value)) {
+            return "Please enter a valid number";
+          }
+          if (value <= 0) {
+            return "Please enter a number greater than 0";
+          }
+          if (value > tokenBBal_float) {
+            return `Insufficient balance`;
+          }
+          return true;
+        },
       },
     ]);
 
-    const spinner = ora("Placing market sell order...").start();
+    const spinner = ora("Executing market sell order...").start();
 
     try {
-      await this.placeSellOrder(MARKETS[market], amount, amount, 0, 2 ** 32);
+      await this.placeSellOrder(
+        MARKETS[market],
+        amount * 10,
+        amount * 2 ** 30,
+        10,
+        2 ** 30
+      );
       spinner.succeed("Market sell order placed successfully!");
     } catch (error) {
       spinner.fail("Failed to place market sell order");
-      this.logger.error("Error placing market sell order:", error);
+      this.logger.error("Error executing market sell order:", error);
     }
   }
 
@@ -164,7 +242,7 @@ export class OrderManager {
       ]);
 
     const spinner = ora(
-      `Placing custom ${side.toLowerCase()} order...`
+      `Executing custom ${side.toLowerCase()} order...`
     ).start();
 
     try {
@@ -191,7 +269,7 @@ export class OrderManager {
     } catch (error) {
       spinner.fail(`Failed to place custom ${side.toLowerCase()} order`);
       this.logger.error(
-        `Error placing custom ${side.toLowerCase()} order:`,
+        `Error executing custom ${side.toLowerCase()} order:`,
         error
       );
     }
@@ -209,10 +287,10 @@ export class OrderManager {
     return this.wallet.sendTransaction(async () => {
       await dex.placeBuyOrder(
         pair,
-        UInt64.from(amountLow * 10 ** DECIMALS),
-        UInt64.from(amountHigh * 10 ** DECIMALS),
-        UInt64.from(priceLow),
-        UInt64.from(priceHigh)
+        UInt64.from(Math.floor(amountLow * 10 ** DECIMALS)),
+        UInt64.from(Math.floor(amountHigh * 10 ** DECIMALS)),
+        UInt64.from(Math.floor(priceLow)),
+        UInt64.from(Math.floor(priceHigh))
       );
     });
   }
@@ -229,10 +307,10 @@ export class OrderManager {
     return this.wallet.sendTransaction(async () => {
       await dex.placeSellOrder(
         pair,
-        UInt64.from(amountLow * 10 ** DECIMALS),
-        UInt64.from(amountHigh * 10 ** DECIMALS),
-        UInt64.from(priceLow),
-        UInt64.from(priceHigh)
+        UInt64.from(Math.floor(amountLow * 10 ** DECIMALS)),
+        UInt64.from(Math.floor(amountHigh * 10 ** DECIMALS)),
+        UInt64.from(Math.floor(priceLow)),
+        UInt64.from(Math.floor(priceHigh))
       );
     });
   }

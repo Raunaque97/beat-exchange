@@ -12,6 +12,7 @@ import {
   TOKEN_IDS,
   DECIMALS,
   MARKETS,
+  tokenNameFromId,
 } from "./constants";
 import ora from "ora";
 import { prettyBalance } from "./utils";
@@ -155,7 +156,7 @@ class BeatExCLI {
 Volume (Last 10s EMA): ${marketInfo?.volume.last10sEMA.toFixed(2) || "0.0"}
 Volume (Last 1min EMA): ${marketInfo?.volume.last1minEMA.toFixed(2) || "0.0"}
 Volume (Last 1hr EMA): ${marketInfo?.volume.last1hrEMA.toFixed(2) || "0.0"}
-Balances: ${prettyBalance(balanceA)} ${market.split("_")[0]} | ${prettyBalance(balanceB)} ${market.split("_")[1]}`;
+Balances: ${prettyBalance(balanceA)} ${tokenNameFromId(MARKETS[market].a)} | ${prettyBalance(balanceB)} ${tokenNameFromId(MARKETS[market].b)}`;
 
       this.printMarketInfo(market, statsText, firstTime);
     };
@@ -182,6 +183,9 @@ Balances: ${prettyBalance(balanceA)} ${market.split("_")[0]} | ${prettyBalance(b
         return;
       }
       await this.orderManager.placeOrder(market, action);
+      console.clear();
+      this.printHeader(`Market: ${market}`);
+      await updateMarketInfo(true);
     }
   }
 
