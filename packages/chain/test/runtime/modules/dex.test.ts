@@ -13,10 +13,10 @@ import {
   DEX_ADDRESS,
   PairBlockKey,
   SettlementInfo,
-  TokenPair,
 } from "../../../src/runtime/modules/dex";
-import { DECIMALS } from "../../../src/runtime/constants";
+import { DECIMALS, PRICE_DECIMALS } from "../../../src/runtime/constants";
 import { TestingAppChain } from "../../TestingAppChain";
+import { TokenPair } from "../../../src/runtime/utils";
 
 log.setLevel("ERROR");
 
@@ -110,13 +110,12 @@ describe("dex", () => {
         ethUsdt,
         UInt64.from(100 * 10 ** DECIMALS),
         UInt64.from(100 * 10 ** DECIMALS),
-        UInt64.from(2000),
-        UInt64.from(4000)
+        UInt64.from(2000 * 10 ** PRICE_DECIMALS),
+        UInt64.from(4000 * 10 ** PRICE_DECIMALS)
       );
     });
     await tx1.sign();
     await tx1.send();
-    // bob is market making with 1 eth and 3000 usdt
     // current eth price ~ 3k
     appChain.setSigner(bobPrivateKey);
     const tx2 = await appChain.transaction(bob, async () => {
@@ -124,8 +123,8 @@ describe("dex", () => {
         ethUsdt,
         UInt64.from(0),
         UInt64.from(3300 * 10 ** DECIMALS),
-        UInt64.from(3000),
-        UInt64.from(3300)
+        UInt64.from(3000 * 10 ** PRICE_DECIMALS),
+        UInt64.from(3300 * 10 ** PRICE_DECIMALS)
       );
     });
     await tx2.sign();
@@ -134,7 +133,7 @@ describe("dex", () => {
     // these should run in the server/sequencer
     appChain.setSigner(sequencerPrivateKey);
     // calculate settlement price
-    const settlementPrice = UInt64.from(3300);
+    const settlementPrice = UInt64.from(3300 * 10 ** PRICE_DECIMALS);
 
     const tx3 = await appChain.transaction(
       sequencer,

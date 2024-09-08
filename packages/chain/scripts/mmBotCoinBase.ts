@@ -4,7 +4,7 @@ import { PrivateKey } from "o1js";
 import * as dotenv from "dotenv";
 import { getBalance, getCurrentNonce, prettyBalance } from "./utils";
 import { exit } from "process";
-import { TokenPair, DECIMALS } from "../src";
+import { TokenPair, PRICE_DECIMALS } from "../src";
 
 // running script from `root/packages/chain`
 dotenv.config({ path: "./scripts/.env" });
@@ -55,7 +55,7 @@ while (true) {
   // get price from coinbase
   const price = await getEthPrice(); // price of B in terms of A
 
-  const tokenB_usdVal = balanceB.mul(price);
+  const tokenB_usdVal = balanceB.mul(price).div(10 ** PRICE_DECIMALS);
   const amt =
     tokenB_usdVal.toBigInt() < balanceA.toBigInt() ? tokenB_usdVal : balanceA;
 
@@ -102,7 +102,7 @@ while (true) {
   if (counter % 1 === 0) {
     balanceA = await getBalance(client, publicKey, pair.a); // usdt
     balanceB = await getBalance(client, publicKey, pair.b); // eth
-    const usdVal = balanceB.mul(price);
+    const usdVal = balanceB.mul(price).div(10 ** PRICE_DECIMALS);
     console.log(
       `BalanceA (usdt): ${prettyBalance(balanceA)} \tBalanceB (eth): ${prettyBalance(balanceB)} \t ~ $${prettyBalance(usdVal)}`
     );
@@ -117,7 +117,7 @@ async function getEthPrice(): Promise<number> {
     const { data } = (await response.json()) as any;
     // @ts-ignore
     const price = parseFloat(data.amount);
-    return Math.floor(price * 10 ** 0);
+    return Math.floor(price * 10 ** PRICE_DECIMALS);
   } catch (error) {
     console.error("Error fetching price from Coinbase:", error);
     throw error;

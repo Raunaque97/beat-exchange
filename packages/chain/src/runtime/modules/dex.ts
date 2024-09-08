@@ -25,6 +25,7 @@ import {
   safeDiv,
   safeDiv112,
 } from "../utils";
+import { PRICE_DECIMALS } from "../constants";
 
 export class OrderKey extends Struct({
   pair: TokenPair,
@@ -166,8 +167,14 @@ export class Dex extends RuntimeModule<{}> {
       orderId.add(1)
     );
     // update sender's balance
-    const deduction_low = safeDiv(amount_low, price_low);
-    const deduction_high = safeDiv(amount_high, price_high);
+    const deduction_low = safeDiv(
+      amount_low.mul(UInt64.from(10 ** PRICE_DECIMALS)),
+      price_low
+    );
+    const deduction_high = safeDiv(
+      amount_high.mul(UInt64.from(10 ** PRICE_DECIMALS)),
+      price_high
+    );
     await this.balances.transfer(
       pair.b,
       this.transaction.sender.value,
@@ -257,7 +264,10 @@ export class Dex extends RuntimeModule<{}> {
       new UInt112(amtSP).mul(new UInt112(sellTotal)),
       new UInt112(provableMax(buyTotal, sellTotal))
     );
-    const tradeAmt_B = safeDiv(tradeAmt_A, settlementPrice);
+    const tradeAmt_B = safeDiv(
+      tradeAmt_A.mul(UInt64.from(10 ** PRICE_DECIMALS)),
+      settlementPrice
+    );
     assert(
       tradeAmt_A.lessThanOrEqual(order.amount_low),
       "Invariant Unsatisfied: tradeAmt_A <= amount_low"
@@ -275,11 +285,17 @@ export class Dex extends RuntimeModule<{}> {
       order.receiverAddress,
       order.amount_low.sub(tradeAmt_A) // amount of token A refunded
     );
-    Provable.asProver(() => {
+    Provable.asProver(async () => {
       console.log(`settlementStepBuy: settlementPrice ${settlementPrice.toString()}
         tradeAmt_B ${tradeAmt_B.toString()}
         receiver ${order.receiverAddress.toBase58()}
         refund ${order.amount_low.sub(tradeAmt_A).toString()}`);
+      const { value: dexBalB } = await this.balances.balances.get(
+        new BalancesKey({ tokenId: pair.b, address: DEX_ADDRESS })
+      );
+      console.log(
+        `### tradeAmt_B ${tradeAmt_B.toString()}, dexBalB ${dexBalB.toString()}`
+      );
     });
     // update settlementInfo, counters
     await this.settlementInfos.set(
@@ -335,10 +351,19 @@ export class Dex extends RuntimeModule<{}> {
       new UInt112(amtSP).mul(new UInt112(buyTotal)),
       new UInt112(provableMax(buyTotal, sellTotal))
     );
-    const tradeAmt_B = safeDiv(tradeAmt_A, settlementPrice);
+    const tradeAmt_B = safeDiv(
+      tradeAmt_A.mul(UInt64.from(10 ** PRICE_DECIMALS)),
+      settlementPrice
+    );
     const totalDeposit = provableMax(
-      safeDiv(order.amount_low, order.price_low),
-      safeDiv(order.amount_high, order.price_high)
+      safeDiv(
+        order.amount_low.mul(UInt64.from(10 ** PRICE_DECIMALS)),
+        order.price_low
+      ),
+      safeDiv(
+        order.amount_high.mul(UInt64.from(10 ** PRICE_DECIMALS)),
+        order.price_high
+      )
     );
     assert(
       tradeAmt_B.lessThanOrEqual(totalDeposit),

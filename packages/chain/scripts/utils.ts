@@ -1,7 +1,7 @@
 import { Balance, BalancesKey, TokenId, UInt64 } from "@proto-kit/library";
 import { PublicKey } from "o1js";
 import { client } from "../src/environments/client.config";
-import { DECIMALS } from "../src/runtime/constants";
+import { DECIMALS, PRICE_DECIMALS } from "../src/runtime/constants";
 
 export async function getBalance(
   appChain: typeof client,
@@ -28,5 +28,9 @@ export async function getCurrentNonce(
 }
 
 export function prettyBalance(bal: Balance, decimals = DECIMALS) {
-  return `${bal.toString().slice(0, -decimals)}.${Number(bal.toString().slice(-decimals))}`;
+  return `${bal.toString().slice(0, -decimals)}.${Number(bal.toString().slice(-decimals).substring(0, 5))}`;
+}
+
+export function prettyPrice(bal: Balance, decimals = PRICE_DECIMALS) {
+  return `${bal.toString().slice(0, -decimals)}.${Number(bal.toString().slice(-decimals).substring(0, 2))}`;
 }

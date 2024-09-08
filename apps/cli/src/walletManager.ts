@@ -3,7 +3,11 @@ import { PublicKey, PrivateKey } from "o1js";
 import { client, DECIMALS } from "chain";
 import { Logger } from "./logger";
 import { ConfigManager } from "./configManager";
-import { DEFAULT_GRAPHQL_ENDPOINT, marketNameFromIds } from "./constants";
+import {
+  DEFAULT_GRAPHQL_ENDPOINT,
+  marketNameFromIds,
+  PRICE_DECIMALS,
+} from "./constants";
 import { BlockQueryResponse, MarkeStats, Transaction } from "./types";
 import { getMethodId } from "./utils";
 
@@ -155,7 +159,7 @@ export class WalletManager {
       if (txn.tx.methodId === getMethodId("Dex", "startSettlement")) {
         const tokenAId = TokenId.from(txn.tx.argsFields[0]);
         const tokenBId = TokenId.from(txn.tx.argsFields[1]);
-        const price = Number(txn.tx.argsFields[2]) / 10 ** 0;
+        const price = Number(txn.tx.argsFields[2]) / 10 ** PRICE_DECIMALS;
         const buyTotal = Number(txn.tx.argsFields[3]);
         const sellTotal = Number(txn.tx.argsFields[4]);
         const vol = Math.max(buyTotal, sellTotal) / 10 ** DECIMALS;

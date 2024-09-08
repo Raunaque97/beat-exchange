@@ -1,7 +1,12 @@
 import { TokenId } from "@proto-kit/library";
-import { DECIMALS as DECIMALS_CHAIN, TokenPair } from "chain";
+import {
+  DECIMALS as DECIMALS_CHAIN,
+  TokenPair,
+  PRICE_DECIMALS as PRICE_DECIMALS_CHAIN,
+} from "chain";
 
 export const DECIMALS = DECIMALS_CHAIN || 9;
+export const PRICE_DECIMALS = PRICE_DECIMALS_CHAIN || 5;
 
 export const TOKEN_IDS = {
   ETH: 2,

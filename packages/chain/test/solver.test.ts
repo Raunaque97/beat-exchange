@@ -2,7 +2,7 @@ import "reflect-metadata";
 import { UInt64 } from "@proto-kit/library";
 import { calculateSettlementPrice } from "../src/solver";
 import { Order } from "../src/runtime/utils";
-import { DECIMALS } from "../src/runtime/constants";
+import { DECIMALS, PRICE_DECIMALS } from "../src/runtime/constants";
 import { TestingAppChain } from "@proto-kit/sdk";
 
 describe("Solver", () => {
@@ -17,8 +17,8 @@ describe("Solver", () => {
   ): Order => ({
     amount_low: UInt64.from(amountLow * 10 ** DECIMALS),
     amount_high: UInt64.from(amountHigh * 10 ** DECIMALS),
-    price_low: UInt64.from(priceLow),
-    price_high: UInt64.from(priceHigh),
+    price_low: UInt64.from(priceLow * 10 ** PRICE_DECIMALS),
+    price_high: UInt64.from(priceHigh * 10 ** PRICE_DECIMALS),
   });
 
   beforeAll(async () => {
@@ -37,7 +37,7 @@ describe("Solver", () => {
     ];
     const sellOrders = [createOrder(0, 1000, 3000, 3300)];
     const result = calculateSettlementPrice(buyOrders, sellOrders);
-    expect(result.toString()).toBe("3030");
+    expect(result.toString()).toBe((3030 * 10 ** PRICE_DECIMALS).toString());
   });
 
   it("should calculate the correct settlement price for a more complex case", () => {
@@ -50,7 +50,7 @@ describe("Solver", () => {
       createOrder(0, 1000, 3000, 3300),
     ];
     const result = calculateSettlementPrice(buyOrders, sellOrders);
-    // expect(result.toString()).toBe("3030");
+    // expect(result.toString()).toBe((3030 * 10 ** PRICE_DECIMALS).toString());
   });
 
   it("should return a valid price when buy and sell orders don't overlap", () => {

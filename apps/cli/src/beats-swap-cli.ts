@@ -162,7 +162,7 @@ Balances: ${chalk.green(`${prettyBalance(balanceA)} ${tokenNameFromId(MARKETS[ma
     };
 
     // Start updating market info
-    const intervalId = setInterval(updateMarketInfo, 2000);
+    const intervalId = setInterval(updateMarketInfo, 200);
     await updateMarketInfo(true);
     // process.stdout.write(`\u001B[15;0H`);
     while (true) {

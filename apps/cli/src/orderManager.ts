@@ -1,7 +1,13 @@
 import { UInt64 } from "@proto-kit/library";
 import { client } from "chain";
 import { Logger } from "./logger";
-import { DECIMALS, TOKEN_IDS, MARKETS, tokenNameFromId } from "./constants";
+import {
+  DECIMALS,
+  TOKEN_IDS,
+  MARKETS,
+  tokenNameFromId,
+  PRICE_DECIMALS,
+} from "./constants";
 import inquirer from "inquirer";
 import ora from "ora";
 import { TokenPair } from "chain";
@@ -165,7 +171,7 @@ export class OrderManager {
     const spinner = ora("Executing market buy order...").start();
 
     try {
-      await this.placeBuyOrder(MARKETS[market], amount, amount, 10, 2 ** 32);
+      await this.placeBuyOrder(MARKETS[market], amount, amount, 10, 2 ** 16);
       spinner.succeed("Market buy order placed successfully!");
     } catch (error) {
       spinner.fail("Failed to place market buy order");
@@ -202,9 +208,9 @@ export class OrderManager {
       await this.placeSellOrder(
         MARKETS[market],
         amount * 10,
-        amount * 2 ** 30,
+        amount * 2 ** 16,
         10,
-        2 ** 30
+        2 ** 16
       );
       spinner.succeed("Market sell order placed successfully!");
     } catch (error) {
@@ -289,8 +295,8 @@ export class OrderManager {
         pair,
         UInt64.from(Math.floor(amountLow * 10 ** DECIMALS)),
         UInt64.from(Math.floor(amountHigh * 10 ** DECIMALS)),
-        UInt64.from(Math.floor(priceLow)),
-        UInt64.from(Math.floor(priceHigh))
+        UInt64.from(Math.floor(priceLow * 10 ** PRICE_DECIMALS)),
+        UInt64.from(Math.floor(priceHigh * 10 ** PRICE_DECIMALS))
       );
     });
   }
@@ -309,8 +315,8 @@ export class OrderManager {
         pair,
         UInt64.from(Math.floor(amountLow * 10 ** DECIMALS)),
         UInt64.from(Math.floor(amountHigh * 10 ** DECIMALS)),
-        UInt64.from(Math.floor(priceLow)),
-        UInt64.from(Math.floor(priceHigh))
+        UInt64.from(Math.floor(priceLow * 10 ** PRICE_DECIMALS)),
+        UInt64.from(Math.floor(priceHigh * 10 ** PRICE_DECIMALS))
       );
     });
   }
