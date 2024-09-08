@@ -1,13 +1,19 @@
-# Protokit starter-kit
+# Beat-Ex
 
-This repository is a monorepo aimed at kickstarting application chain development using the Protokit framework.
+A Dex using Frequent Batch Auctions (FBA) for order settlement.
 
-## Quick start
+Decentralised exchanges (DEXs) have revolutionised cryptocurrency trading, offering permissionless access and eliminating the need for centralised intermediaries. It's a step up from the traditional exchanges (which are permissioned), providing greater accessibility and transparency to users. But a critical flaw still remains, one that threatens the fairness and efficiency of these platforms.
+These platforms are vulnerable to various forms of MEV, like frontrunning, backrunning, and sandwich attacks, snipping. These flaws can be largely attributed to the continuous-time nature of current DEX designs, where the ordering of transactions within a block matters significantly. This allows one to extract value from other users' transactions risk-free, at the expense of regular traders and liquidity providers, without benefiting the market in any way.
 
-The monorepo contains 1 package and 1 app:
+Beat-Ex implements a new order matching mechanism called Frequent Batch Auctions (FBA). FBAs divide time into discrete steps or batches (e.g., 1 s or 100 ms). During each interval, incoming orders are collected and then matched at a uniform clearing price, thus effectively nullifying any advantage from ordering transactions. By treating all orders within a batch equally, FBAs create a more level playing field for all participants.
+
+In fact, FBAs were originally proposed as a solution to the problem of high-frequency trading (HFT) in traditional finance. One can draw clear parallels between the challenges faced by traditional financial markets due to the value-extractive nature of HFT and the MEV landscape in current dex design. In traditional markets, high-frequency traders can gain disproportionate advantages with a minute edge in latency, leading to a costly technological arms race that negatively impacts market efficiency and price discovery. Similarly, MEV extraction from dex transactions creates an environment where the ability to influence ordering of transactions at the L1 layer often takes precedence over genuine price discovery and fair market participation, distorting the incentives of the market participants.
+
+The idea for Beat-Ex was inspired by a talk by Eric Budish [link](https://www.youtube.com/watch?v=OwQjTedWSUM)
 
 - `packages/chain` contains everything related to your app-chain
-- `apps/web` contains a demo UI that connects to your locally hosted app-chain sequencer
+- `apps/web` WIP
+- `apps/cli` CLI to interact with the chain
 
 **Prerequisites:**
 
@@ -16,128 +22,12 @@ The monorepo contains 1 package and 1 app:
 - nvm
 
 For running with persistance / deploying on a server
+
 - docker `>= 24.0`
 - docker-compose `>= 2.22.0`
 
 ## Setup
 
-```zsh
-git clone https://github.com/proto-kit/starter-kit my-chain
-cd my-chain
-
-# ensures you have the right node.js version
-nvm use
-pnpm install
-```
-
-## Running
-
-### Environments
-
-The starter-kit offers different environments to run you appchain.
-You can use those environments to configure the mode of operation for your appchain depending on which stage of development you are in.
-
-The starter kit comes with a set of pre-configured environments:
-- `inmemory`: Runs everything in-memory without persisting the data. Useful for early stages of runtime development.
-- `development`: Runs the sequencer locally and persists all state in databases running in docker. 
-- `sovereign`: Runs your appchain fully in docker (except the UI) for testnet deployments without settlement.
-
-Every command you execute should follow this pattern:
-
-`pnpm env:<environment> <command>`
-
-This makes sure that everything is set correctly and our tooling knows which environment you want to use.
-
-### Running in-memory
-
-```zsh
-# starts both UI and sequencer locally
-pnpm env:inmemory dev
-
-# starts UI only
-pnpm env:inmemory dev --filter web
-# starts sequencer only
-pnpm env:inmemory dev --filter chain
-```
-
-> Be aware, the dev command will automatically restart your application when your sources change. 
-> If you don't want that, you can alternatively use `pnpm run build` and `pnpm run start`
-
-Navigate to `localhost:3000` to see the example UI, or to `localhost:8080/graphql` to see the GQL interface of the locally running sequencer.
-
-### Running tests
-```zsh
-# run and watch tests for the `chain` package
-pnpm run test --filter=chain -- --watchAll
-```
-
-### Running with persistence
-
-```zsh
-# start databases
-pnpm env:development docker:up -d
-# generate prisma client
-pnpm env:development prisma:generate
-# migrate database schema
-pnpm env:development prisma:migrate
-
-# build & start sequencer, make sure to prisma:generate & migrate before
-pnpm build --filter=chain
-pnpm env:development start --filter=chain
-
-# Watch sequencer for local filesystem changes
-# Be aware: Flags like --prune won't work with 'dev'
-pnpm env:development dev --filter=chain
-
-# Start the UI
-pnpm env:development dev --filter web
-```
-
-### Deploying to a server
-
-When deploying to a server, you should push your code along with your forked starter-kit to some repository, 
-then clone it on your remote server and execute it.
-
-```zsh
-# start every component with docker
-pnpm env:sovereign docker:up -d
-```
-
-UI will be accessible at `https://localhost` and GQL inspector will be available at `https://localhost/graphql`
-
-#### Configuration
-
-Go to `docker/proxy/Caddyfile` and replace the `*` matcher with your domain.
-```
-yourdomain.com {
-    ...
-}
-```
-
-> HTTPS is handled automatically by Caddy, you can (learn more about automatic https here.)[https://caddyserver.com/docs/automatic-https]
-
-In most cases, you will need to change the `NEXT_PUBLIC_PROTOKIT_GRAPHQL_URL` property in the `.env` file to the domain your graphql endpoint is running in.
-By default, the graphql endpoint is running on the same domain as your UI with the `/graphql` suffix.
-
-#### Running sovereign chain locally
-
-The caddy reverse-proxy automatically uses https for all connections, use this guide to remove certificate errors when accessing localhost sites
-
-<https://caddyserver.com/docs/running#local-https-with-docker>
-
-## CLI Options
-
-- `logLevel`: Overrides the loglevel used. Also configurable via the `PROTOKIT_LOG_LEVEL` environment variable.
-- `pruneOnStartup`: If set, prunes the database before startup, so that your chain is starting from a clean, genesis state. Alias for environment variable `PROTOKIT_PRUNE_ON_STARTUP`
-
-In order to pass in those CLI option, add it at the end of your command like this
-
-`pnpm env:inmemory dev --filter chain -- --logLevel DEBUG --pruneOnStartup`
-
-### Building the framework from source
-
-1. Make sure the framework is located under ../framework from the starter-kit's location
-2. Adapt your starter-kit's package.json to use the file:// references to framework
-3. Go into the framework folder, and build a docker image containing the sources with `docker build -f ./packages/deployment/docker/development-base/Dockerfile -t protokit-base .`
-
-4. Comment out the first line of docker/base/Dockerfile to use protokit-base
+- run `pnpm env:inmemory dev --filter chain` from root to run the sequencer
+- run cli using `pnpm dev --filter cli`
+- scripts in `packages/chain/scripts/*` can be run using `run dev:bot [scriptName]`
