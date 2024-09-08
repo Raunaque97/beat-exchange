@@ -45,9 +45,15 @@ console.log(`starting B Balance:\t${balanceB}`);
 
 let counter = 0;
 
+const price = await getEthPrice(); // price of B in terms of A
+const tokenB_usdVal = balanceB.mul(price).div(10 ** PRICE_DECIMALS);
+let amt =
+  tokenB_usdVal.toBigInt() < balanceA.toBigInt() ? tokenB_usdVal : balanceA;
+amt = amt.div(10);
+
 while (true) {
-  balanceA = await getBalance(client, publicKey, pair.a); // usdt
-  balanceB = await getBalance(client, publicKey, pair.b); // eth
+  // balanceA = await getBalance(client, publicKey, pair.a); // usdt
+  // balanceB = await getBalance(client, publicKey, pair.b); // eth
   if (balanceA.toString() === "0" || balanceB.toString() === "0") {
     console.log("Dont have enough balance to provide liquidity");
     exit(0);
@@ -56,13 +62,9 @@ while (true) {
   // get price from binance
   const price = await getEthPrice(); // price of B in terms of A
 
-  const tokenB_usdVal = balanceB.mul(price).div(10 ** PRICE_DECIMALS);
-  const amt =
-    tokenB_usdVal.toBigInt() < balanceA.toBigInt() ? tokenB_usdVal : balanceA;
-
   // console.log(`amt :\t${amt.toString()}`);
   // place Buy side order(s)
-  let tx = await client.transaction(
+  let tx1 = await client.transaction(
     publicKey,
     async () => {
       await dex.placeBuyOrder(
@@ -75,11 +77,10 @@ while (true) {
     },
     { nonce: nonce++ }
   );
-  tx.transaction = tx.transaction?.sign(pvtKey);
-  await tx.send();
+  tx1.transaction = tx1.transaction?.sign(pvtKey);
 
   // place Sell side order(s)
-  tx = await client.transaction(
+  let tx2 = await client.transaction(
     publicKey,
     async () => {
       await dex.placeSellOrder(
@@ -92,18 +93,21 @@ while (true) {
     },
     { nonce: nonce++ }
   );
-  tx.transaction = tx.transaction?.sign(pvtKey);
-  await tx.send();
+  tx2.transaction = tx2.transaction?.sign(pvtKey);
+
+  await Promise.all([tx1.send(), tx2.send()]);
 
   // wait for next block
-  await new Promise((resolve) => setTimeout(resolve, 1000)); // TODO find a better way
+  await new Promise((resolve) => setTimeout(resolve, 300)); // TODO find a better way
 
   // calculate stats
   counter++;
-  if (counter % 1 === 0) {
+  if (counter % 10 === 0) {
     balanceA = await getBalance(client, publicKey, pair.a); // usdt
     balanceB = await getBalance(client, publicKey, pair.b); // eth
     const usdVal = balanceB.mul(price).div(10 ** PRICE_DECIMALS);
+    amt = usdVal.toBigInt() < balanceA.toBigInt() ? usdVal : balanceA;
+    amt = amt.div(10);
     console.log(
       `BalanceA (usdt): ${prettyBalance(balanceA)} \tBalanceB (eth): ${prettyBalance(balanceB)} \t ~ $${prettyBalance(usdVal)}`
     );

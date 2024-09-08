@@ -46,6 +46,10 @@ export function calculateSettlementPrice(
       break;
     }
   }
-  console.log(`count: ${count} SettlementPrice: ${mid.toString()}`);
+  console.log(
+    `### count: ${count} SettlementPrice: ${mid.toString()}
+    buyOrders: ${buyOrders.length} sellOrders: ${sellOrders.length}
+    `
+  );
   return mid;
 }

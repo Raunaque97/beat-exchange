@@ -287,14 +287,17 @@ export class Dex extends RuntimeModule<{}> {
     );
     Provable.asProver(async () => {
       console.log(`settlementStepBuy: settlementPrice ${settlementPrice.toString()}
-        tradeAmt_B ${tradeAmt_B.toString()}
         receiver ${order.receiverAddress.toBase58()}
+        tradeAmt_B ${tradeAmt_B.toString()}
         refund ${order.amount_low.sub(tradeAmt_A).toString()}`);
+      const { value: dexBalA } = await this.balances.balances.get(
+        new BalancesKey({ tokenId: pair.a, address: DEX_ADDRESS })
+      );
       const { value: dexBalB } = await this.balances.balances.get(
         new BalancesKey({ tokenId: pair.b, address: DEX_ADDRESS })
       );
       console.log(
-        `### tradeAmt_B ${tradeAmt_B.toString()}, dexBalB ${dexBalB.toString()}`
+        `dexBalA ${dexBalA.toString()}, dexBalB ${dexBalB.toString()}`
       );
     });
     // update settlementInfo, counters
@@ -381,11 +384,20 @@ export class Dex extends RuntimeModule<{}> {
       order.receiverAddress,
       tradeAmt_A
     );
-    Provable.asProver(() => {
+    Provable.asProver(async () => {
       console.log(`settlementStepSell: settlementPrice ${settlementPrice.toString()}
         receiver ${order.receiverAddress.toBase58()}
         tradeAmt_A ${tradeAmt_A.toString()}
         refund ${totalDeposit.sub(tradeAmt_B).toString()}`);
+      const { value: dexBalA } = await this.balances.balances.get(
+        new BalancesKey({ tokenId: pair.a, address: DEX_ADDRESS })
+      );
+      const { value: dexBalB } = await this.balances.balances.get(
+        new BalancesKey({ tokenId: pair.b, address: DEX_ADDRESS })
+      );
+      console.log(
+        `dexBalA ${dexBalA.toString()}, dexBalB ${dexBalB.toString()}`
+      );
     });
     // update settlementInfo, counters
     await this.settlementInfos.set(

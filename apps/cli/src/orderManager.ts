@@ -62,7 +62,7 @@ export class OrderManager {
       {
         type: "input",
         name: "amount",
-        message: "Enter amount to buy:",
+        message: "Enter amount to buy: (max: " + tokenABal_float + ")",
         validate: (value) => {
           if (!value || isNaN(parseFloat(value))) {
             return "Please enter a valid number";
@@ -116,7 +116,7 @@ export class OrderManager {
       {
         type: "input",
         name: "amount",
-        message: "Enter amount to sell:",
+        message: "Enter amount to sell: (max " + tokenBBal_float + ")",
         validate: (value) => {
           if (!value || isNaN(parseFloat(value))) {
             return "Please enter a valid number";
@@ -170,7 +170,7 @@ export class OrderManager {
       {
         type: "input",
         name: "amount",
-        message: "Enter amount to buy:",
+        message: "Enter amount to buy: (max: " + tokenABal_float + ")",
         validate: (value) => {
           if (!value || isNaN(parseFloat(value))) {
             return "Please enter a valid number";
@@ -204,7 +204,7 @@ export class OrderManager {
       {
         type: "input",
         name: "amount",
-        message: "Enter amount to sell:",
+        message: "Enter amount to sell: (max: " + tokenBBal_float + ")",
         validate: (value) => {
           if (!value || isNaN(parseFloat(value))) {
             return "Please enter a valid number";
@@ -225,9 +225,9 @@ export class OrderManager {
     try {
       await this.placeSellOrder(
         MARKETS[market],
-        amount * 10,
+        amount * 100,
         amount * 2 ** 16,
-        10,
+        100,
         2 ** 16
       );
       spinner.succeed("Market sell order placed successfully!");

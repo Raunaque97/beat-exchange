@@ -37,7 +37,7 @@ for (let receiver of [receiver1, receiver2]) {
       await balances.addBalance(
         TokenId.from(2), // eth
         receiver,
-        UInt64.from(3 * 10 ** DECIMALS)
+        UInt64.from(40 * 10 ** DECIMALS)
       );
     },
     { nonce: nonce++ }
@@ -51,7 +51,7 @@ for (let receiver of [receiver1, receiver2]) {
       await balances.addBalance(
         TokenId.from(1), // usdt
         receiver,
-        UInt64.from(10000 * 10 ** DECIMALS)
+        UInt64.from(100000 * 10 ** DECIMALS)
       );
     },
     { nonce: nonce++ }
