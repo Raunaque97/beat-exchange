@@ -60,26 +60,35 @@ export class OrderManager {
     const tokenABal_float = Number(tokenABal.toBigInt()) / 10 ** DECIMALS;
     const { amount, price } = await inquirer.prompt([
       {
-        type: "number",
+        type: "input",
         name: "amount",
         message: "Enter amount to buy:",
         validate: (value) => {
-          if (!value || isNaN(value)) {
+          if (!value || isNaN(parseFloat(value))) {
             return "Please enter a valid number";
           }
-          if (value <= 0) {
+          if (parseFloat(value) <= 0) {
             return "Please enter a number greater than 0";
           }
-          if (value > tokenABal_float) {
+          if (parseFloat(value) > tokenABal_float) {
             return `Insufficient balance`;
           }
           return true;
         },
       },
       {
-        type: "number",
+        type: "input",
         name: "price",
         message: "Enter price to buy at:",
+        validate: (value) => {
+          if (!value || isNaN(parseFloat(value))) {
+            return "Please enter a valid number";
+          }
+          if (parseFloat(value) <= 0) {
+            return "Please enter a number greater than 0";
+          }
+          return true;
+        },
       },
     ]);
 
@@ -105,26 +114,35 @@ export class OrderManager {
     const tokenBBal_float = Number(tokenBBal.toBigInt()) / 10 ** DECIMALS;
     const { amount, price } = await inquirer.prompt([
       {
-        type: "number",
+        type: "input",
         name: "amount",
         message: "Enter amount to sell:",
         validate: (value) => {
-          if (!value || isNaN(value)) {
+          if (!value || isNaN(parseFloat(value))) {
             return "Please enter a valid number";
           }
-          if (value <= 0) {
+          if (parseFloat(value) <= 0) {
             return "Please enter a number greater than 0";
           }
-          if (value > tokenBBal_float) {
+          if (parseFloat(value) > tokenBBal_float) {
             return `Insufficient balance`;
           }
           return true;
         },
       },
       {
-        type: "number",
+        type: "input",
         name: "price",
         message: "Enter price:",
+        validate: (value) => {
+          if (!value || isNaN(parseFloat(value))) {
+            return "Please enter a valid number";
+          }
+          if (parseFloat(value) <= 0) {
+            return "Please enter a number greater than 0";
+          }
+          return true;
+        },
       },
     ]);
 
@@ -150,17 +168,17 @@ export class OrderManager {
     const tokenABal_float = Number(tokenABal.toBigInt()) / 10 ** DECIMALS;
     const { amount } = await inquirer.prompt([
       {
-        type: "number",
+        type: "input",
         name: "amount",
         message: "Enter amount to buy:",
         validate: (value) => {
-          if (!value || isNaN(value)) {
+          if (!value || isNaN(parseFloat(value))) {
             return "Please enter a valid number";
           }
-          if (value <= 0) {
+          if (parseFloat(value) <= 0) {
             return "Please enter a number greater than 0";
           }
-          if (value > tokenABal_float) {
+          if (parseFloat(value) > tokenABal_float) {
             return `Insufficient balance`;
           }
           return true;
@@ -184,17 +202,17 @@ export class OrderManager {
     const tokenBBal_float = Number(tokenBBal.toBigInt()) / 10 ** DECIMALS;
     const { amount } = await inquirer.prompt([
       {
-        type: "number",
+        type: "input",
         name: "amount",
         message: "Enter amount to sell:",
         validate: (value) => {
-          if (!value || isNaN(value)) {
+          if (!value || isNaN(parseFloat(value))) {
             return "Please enter a valid number";
           }
-          if (value <= 0) {
+          if (parseFloat(value) <= 0) {
             return "Please enter a number greater than 0";
           }
-          if (value > tokenBBal_float) {
+          if (parseFloat(value) > tokenBBal_float) {
             return `Insufficient balance`;
           }
           return true;
@@ -224,28 +242,69 @@ export class OrderManager {
     side: "Buy" | "Sell"
   ): Promise<void> {
     const { amountLow, amountHigh, priceLow, priceHigh } =
-      await inquirer.prompt([
+      (await inquirer.prompt([
         {
-          type: "number",
+          type: "input",
           name: "amountLow",
           message: "Enter minimum amount:",
+          validate: (value) => {
+            if (!value || isNaN(parseFloat(value))) {
+              return "Please enter a valid number";
+            }
+            if (parseFloat(value) <= 0) {
+              return "Please enter a number greater than 0";
+            }
+            return true;
+          },
         },
         {
-          type: "number",
+          type: "input",
           name: "amountHigh",
           message: "Enter maximum amount:",
+          validate: (value) => {
+            if (!value || isNaN(parseFloat(value))) {
+              return "Please enter a valid number";
+            }
+            if (parseFloat(value) <= 0) {
+              return "Please enter a number greater than 0";
+            }
+            return true;
+          },
         },
         {
-          type: "number",
+          type: "input",
           name: "priceLow",
           message: "Enter minimum price:",
+          validate: (value) => {
+            if (!value || isNaN(parseFloat(value))) {
+              return "Please enter a valid number";
+            }
+            if (parseFloat(value) <= 0) {
+              return "Please enter a number greater than 0";
+            }
+            return true;
+          },
         },
         {
-          type: "number",
+          type: "input",
           name: "priceHigh",
           message: "Enter maximum price:",
+          validate: (value) => {
+            if (!value || isNaN(parseFloat(value))) {
+              return "Please enter a valid number";
+            }
+            if (parseFloat(value) <= 0) {
+              return "Please enter a number greater than 0";
+            }
+            return true;
+          },
         },
-      ]);
+      ])) as {
+        amountLow: number;
+        amountHigh: number;
+        priceLow: number;
+        priceHigh: number;
+      };
 
     const spinner = ora(
       `Executing custom ${side.toLowerCase()} order...`
